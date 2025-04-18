@@ -8,12 +8,14 @@ from pydub import AudioSegment
 import plotly.graph_objects as go
 import pandas as pd
 from dotenv import load_dotenv
+import streamlit.components.v1 as components
 
 # Load environment variables
 load_dotenv()
 
 # API Configuration
 API_URL = os.getenv("API_URL", "http://localhost:8000")
+GRAFANA_URL = os.getenv("GRAFANA_URL", "http://localhost:3000")
 
 # Functions to interact with the API
 def get_available_models():
@@ -120,13 +122,35 @@ def main():
             languages,
             format_func=lambda x: {"vi": "Vietnamese", "en": "English", "auto": "Auto-detect"}[x]
         )
+        
+        # Add metrics dashboard link
+        st.header("Monitoring")
+        if st.button("View Metrics Dashboard"):
+            st.session_state.show_metrics = True
+        
+        if st.button("Hide Metrics Dashboard"):
+            st.session_state.show_metrics = False
     
-    # Initialize session state for transcription history
+    # Initialize session state for transcription history and metrics toggle
     if "transcription_history" not in st.session_state:
         st.session_state.transcription_history = []
     
+    if "show_metrics" not in st.session_state:
+        st.session_state.show_metrics = False
+    
+    # Show metrics dashboard if toggled
+    if st.session_state.show_metrics:
+        st.header("System Metrics")
+        st.markdown(f"[Open in Grafana]({GRAFANA_URL}/d/asr-dashboard/vietnamese-asr-dashboard?orgId=1&refresh=5s)")
+        
+        # Embed Grafana dashboard using iframe
+        components.iframe(
+            f"{GRAFANA_URL}/d/asr-dashboard/vietnamese-asr-dashboard?orgId=1&refresh=5s&kiosk",
+            height=600
+        )
+    
     # Main content area with tabs
-    tab1, tab2, tab3 = st.tabs(["Upload Audio", "Record Audio", "History"])
+    tab1, tab2, tab3, tab4 = st.tabs(["Upload Audio", "Record Audio", "History", "System Status"])
     
     # Tab 1: Upload Audio
     with tab1:
@@ -258,9 +282,54 @@ def main():
                 st.session_state.transcription_history = []
                 st.experimental_rerun()
     
+    # Tab 4: System Status
+    with tab4:
+        st.header("System Status and Metrics")
+        
+        col1, col2 = st.columns(2)
+        
+        with col1:
+            # API Status
+            st.subheader("API Status")
+            if api_connected:
+                try:
+                    response = requests.get(f"{API_URL}/health")
+                    if response.status_code == 200:
+                        health_data = response.json()
+                        st.success("✅ API is healthy")
+                        st.json(health_data)
+                    else:
+                        st.error(f"❌ API health check failed: {response.status_code}")
+                except Exception as e:
+                    st.error(f"❌ Cannot connect to API: {e}")
+            else:
+                st.error("❌ API is not connected")
+        
+        with col2:
+            # Model Information
+            st.subheader("Available Models")
+            try:
+                response = requests.get(f"{API_URL}/models")
+                if response.status_code == 200:
+                    models_data = response.json()
+                    for model in models_data:
+                        st.markdown(f"**{model['id']}**: {model['description']}")
+                else:
+                    st.error(f"❌ Could not retrieve model information")
+            except Exception as e:
+                st.error(f"❌ Error getting model information: {e}")
+        
+        # Link to metrics
+        st.subheader("Detailed Metrics")
+        st.info("View detailed system metrics and performance in the Grafana dashboard")
+        
+        if st.button("Show Metrics Dashboard", key="show_metrics_btn"):
+            st.session_state.show_metrics = True
+            st.experimental_rerun()
+    
     # Footer
     st.markdown("---")
-    st.markdown("Vietnamese ASR powered by Whisper models | Built with Streamlit")
+    st.markdown("Vietnamese ASR powered by Whisper models | Built with Streamlit | Metrics by Prometheus & Grafana")
 
 if __name__ == "__main__":
     main() 

@@ -65,12 +65,21 @@ vietnamese-asr/
 │   │   └── inference_model.py  # Inference model implementation
 │   ├── utils/            # Utility functions
 │   │   └── __init__.py
+│   ├── metrics.py        # Prometheus metrics definitions
 │   └── app/              # App implementations
 │       └── gradio_demo.py    # Gradio demo implementation
 ├── ui/                   # UI implementation
 │   ├── app.py            # Streamlit app
 │   ├── requirements.txt  # UI dependencies
 │   └── static/           # Static assets
+├── monitoring/           # Monitoring configuration
+│   ├── grafana/          # Grafana dashboards and provisioning
+│   │   └── provisioning/ # Auto-provisioning configurations
+│   │       ├── dashboards/    # Dashboard configurations
+│   │       │   └── json/      # Dashboard JSON definitions
+│   │       └── datasources/   # Data source configurations
+│   └── prometheus/       # Prometheus configuration
+│       └── prometheus.yml     # Prometheus config file
 ├── examples/             # Example audio files
 ├── notebooks/            # Development notebooks
 │   ├── training.py       # Training code
@@ -207,6 +216,60 @@ python run.py app --device cpu
 
 The Gradio demo will be available at http://localhost:7860
 
+## Monitoring and Metrics
+
+The project includes a comprehensive monitoring stack for observability:
+
+### Metrics Collection
+
+- **Prometheus**: Collects metrics from all components
+  - API performance metrics (request rate, latency)
+  - Transcription metrics (count, duration, success rate)
+  - System metrics (CPU, memory usage)
+  - Model performance metrics (inference time, real-time factor)
+
+### Dashboards
+
+- **Grafana**: Provides visualization dashboards
+  - ASR system dashboard with all key metrics
+  - Real-time API performance monitoring
+  - Model performance tracking
+  - System resource utilization
+
+### Metrics Available
+
+- **API Metrics**:
+  - HTTP request count by endpoint and status
+  - Request duration histograms
+  - Endpoint errors and exceptions
+
+- **ASR Model Metrics**:
+  - Transcription count by model and language
+  - Transcription processing time
+  - Audio duration statistics
+  - Model loading time
+  - Inference operations in progress
+
+- **System Metrics**:
+  - Container CPU and memory usage
+  - Host metrics via Node Exporter
+  - Network traffic and disk I/O
+
+### Accessing Metrics
+
+- Prometheus UI: http://localhost:9090
+- Grafana Dashboards: http://localhost:3000 (username: admin, password: admin)
+- Raw metrics endpoint: http://localhost:8000/metrics
+
+### Distributed Tracing
+
+- **Jaeger**: Provides distributed tracing for request flows
+  - Trace API requests from UI through to model inference
+  - Identify bottlenecks in the processing pipeline
+  - Debug performance issues across components
+
+- Jaeger UI: http://localhost:16686
+
 ## Using the Model
 
 ### API Endpoints
@@ -251,6 +314,7 @@ The Gradio demo provides a simple interface for:
 - `PORT`: Port for the API server (default: 8000)
 - `INFERENCE_DEVICE`: Device to run inference on (cpu or cuda, default: cpu)
 - `GRADIO_SHARE`: Whether to share the Gradio demo publicly (default: false)
+- `GRAFANA_URL`: URL of the Grafana dashboard (default: http://localhost:3000)
 
 ## Model Performance
 
@@ -270,5 +334,5 @@ This project is licensed under the MIT License - see the LICENSE file for detail
 
 ## Acknowledgments
 
-- VINAI for the PhoWhisper model
+- VinAI Research for the PhoWhisper-Tiny model
 - The creators of the VietBud500 dataset 

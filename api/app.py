@@ -16,6 +16,10 @@ from starlette.requests import Request
 from starlette.responses import Response
 import torch
 
+# Add Prometheus metrics
+from prometheus_client import make_asgi_app
+import prometheus_client
+
 # Setup logging
 logging.basicConfig(
     level=logging.INFO,
@@ -29,8 +33,12 @@ sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 # Import the model
 try:
     from src.models.inference_model import create_asr_model, ASRInferenceModel
+    from src.metrics import (
+        REQUESTS, REQUEST_DURATION, TRANSCRIPTIONS, TRANSCRIPTION_DURATION,
+        AUDIO_DURATION, MODEL_LOADING_TIME, INFERENCE_IN_PROGRESS, Timer
+    )
 except ImportError:
-    logger.error("Failed to import inference model. Make sure the project structure is correct.")
+    logger.error("Failed to import required modules. Make sure the project structure is correct.")
     raise
 
 # Define supported models
@@ -77,6 +85,10 @@ app = FastAPI(
     version="1.0.0",
 )
 
+# Add Prometheus metrics endpoint
+metrics_app = make_asgi_app()
+app.mount("/metrics", metrics_app)
+
 # Add CORS middleware
 app.add_middleware(
     CORSMiddleware,
@@ -111,7 +123,9 @@ def get_model(model_name: str = DEFAULT_MODEL) -> ASRInferenceModel:
     if cache_key not in model_cache:
         logger.info(f"Loading model {model_name} on {device}")
         try:
-            model_cache[cache_key] = create_asr_model(model_path, device)
+            # Track model loading time
+            with Timer(MODEL_LOADING_TIME, {"model": model_name, "checkpoint": model_path}):
+                model_cache[cache_key] = create_asr_model(model_path, device)
             logger.info(f"Model {model_name} loaded successfully")
         except Exception as e:
             logger.error(f"Error loading model {model_name}: {str(e)}")
@@ -133,13 +147,30 @@ async def add_request_id(request: Request, call_next):
     return response
 
 
-# Add response time middleware
+# Add metrics middleware
 @app.middleware("http")
-async def add_process_time_header(request: Request, call_next):
+async def metrics_middleware(request: Request, call_next):
+    method = request.method
+    path = request.url.path
+    
+    # Skip metrics endpoint
+    if path == "/metrics":
+        return await call_next(request)
+    
     start_time = time.time()
-    response = await call_next(request)
+    
+    # Track request
+    with Timer(REQUEST_DURATION, {"method": method, "endpoint": path}):
+        response = await call_next(request)
+    
+    # Record request count with status
+    status = response.status_code
+    REQUESTS.labels(method=method, endpoint=path, status=status).inc()
+    
+    # Add response time header
     process_time = time.time() - start_time
     response.headers["X-Process-Time"] = str(process_time)
+    
     return response
 
 
@@ -227,10 +258,27 @@ async def transcribe_audio(
         # Get the model
         asr_model = get_model(model)
         
+        # Track transcription start
+        TRANSCRIPTIONS.labels(model=model, language=language, status="started").inc()
+        
+        # Track inference in progress
+        INFERENCE_IN_PROGRESS.labels(model=model).inc()
+        
         # Process the audio
         start_time = time.time()
-        result = asr_model.transcribe(temp_file_path)
+        
+        # Use the timer for transcription duration
+        with Timer(TRANSCRIPTION_DURATION, {"model": model, "language": language}):
+            result = asr_model.transcribe(temp_file_path)
+        
         processing_time = time.time() - start_time
+        
+        # Track audio duration
+        audio_format = os.path.splitext(file.filename)[1].lstrip('.')
+        AUDIO_DURATION.labels(format=audio_format).observe(result.get("duration", 0.0))
+        
+        # Track transcription success
+        TRANSCRIPTIONS.labels(model=model, language=language, status="success").inc()
         
         # Create the response
         response = {
@@ -249,9 +297,15 @@ async def transcribe_audio(
         
         return response
     except Exception as e:
+        # Track transcription failure
+        TRANSCRIPTIONS.labels(model=model, language=language, status="failure").inc()
+        
         logger.error(f"Error transcribing audio: {str(e)}")
         raise HTTPException(status_code=500, detail=f"Error transcribing audio: {str(e)}")
     finally:
+        # Decrement in-progress count
+        INFERENCE_IN_PROGRESS.labels(model=model).dec()
+        
         # Clean up the temporary file
         if os.path.exists(temp_file_path):
             os.remove(temp_file_path)
