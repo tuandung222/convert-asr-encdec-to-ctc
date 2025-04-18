@@ -1,0 +1,56 @@
+groups:
+  - name: asr_alerts
+    rules:
+      - alert: APIHighErrorRate
+        expr: sum(rate(http_requests_total{status=~"5.."}[5m])) / sum(rate(http_requests_total[5m])) > 0.05
+        for: 5m
+        labels:
+          severity: critical
+        annotations:
+          summary: "High error rate in API responses"
+          description: "API server error rate is above 5% ({{ $value | printf \"%.2f\" }})"
+
+      - alert: APIHighLatency
+        expr: histogram_quantile(0.95, sum(rate(http_request_duration_seconds_bucket{job="asr-api"}[5m])) by (le)) > 2
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "API response time is high"
+          description: "95th percentile of API response time is above 2 seconds ({{ $value | printf \"%.2f\" }}s)"
+
+      - alert: APIDown
+        expr: up{job="asr-api"} == 0
+        for: 1m
+        labels:
+          severity: critical
+        annotations:
+          summary: "API service is down"
+          description: "The API service has been down for more than 1 minute"
+
+      - alert: HighMemoryUsage
+        expr: (container_memory_usage_bytes{container_name=~".*api.*"} / container_spec_memory_limit_bytes{container_name=~".*api.*"} * 100) > 80
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "High memory usage in API container"
+          description: "API container is using more than 80% of its memory limit ({{ $value | printf \"%.2f\" }}%)"
+
+      - alert: HighCPUUsage
+        expr: (rate(container_cpu_usage_seconds_total{container_name=~".*api.*"}[5m]) / container_spec_cpu_quota{container_name=~".*api.*"} * 100) > 80
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "High CPU usage in API container"
+          description: "API container is using more than 80% of its CPU limit ({{ $value | printf \"%.2f\" }}%)"
+
+      - alert: TranscriptionErrorRate
+        expr: rate(transcription_errors_total[5m]) / rate(transcription_requests_total[5m]) > 0.1
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "High transcription error rate"
+          description: "ASR system is experiencing a transcription error rate above 10% ({{ $value | printf \"%.2f\" }}%)" 
