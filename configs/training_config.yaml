@@ -1,0 +1,50 @@
+data:
+  train_shards:
+    - "https://huggingface.co/datasets/linhtran92/viet_bud500/resolve/main/data/train-00000-of-00105-be5f872f8be772f5.parquet"
+    - "https://huggingface.co/datasets/linhtran92/viet_bud500/resolve/main/data/train-00097-of-00105-4160c0470220c086.parquet"
+    - "https://huggingface.co/datasets/linhtran92/viet_bud500/resolve/main/data/train-00086-of-00105-131a0bbf617d895c.parquet"
+  test_shard: "https://huggingface.co/datasets/linhtran92/viet_bud500/resolve/main/data/test-00000-of-00002-531c1d81edb57297.parquet"
+  val_size: 0.05
+  batch_size: 24
+  num_workers: 2
+  pin_memory: true
+
+model:
+  name: "vinai/PhoWhisper-tiny"
+  ctc_head:
+    hidden_size: 384
+    num_layers: 2
+    use_layer_norm: true
+    use_gelu: true
+
+optimizer:
+  lr: 1e-4
+  weight_decay: 0.1
+  betas: [0.9, 0.98]
+  eps: 1e-6
+
+scheduler:
+  num_warmup_steps: 20
+  num_training_steps: ${training.max_steps}
+
+training:
+  max_epochs: 64
+  precision: "bf16-mixed"
+  accelerator: "gpu"
+  devices: 1
+  strategy: "auto"
+  max_steps: -1  # -1 means use max_epochs
+  gradient_clip_val: 1.0
+  accumulate_grad_batches: 1
+  log_every_n_steps: 10
+  checkpointing:
+    save_top_k: 1
+    monitor: "val_wer"
+    mode: "min"
+    filename: "best-{val_wer:.4f}"
+
+inference:
+  device: "cpu"
+  half_precision: false
+  batch_size: 8
+  num_workers: 2 

@@ -1,0 +1,22 @@
+model:
+  name: "vinai/PhoWhisper-tiny"
+  checkpoint_path: "checkpoints/best-val_wer.ckpt"  # Path to load the trained checkpoint
+  huggingface_repo_id: "tuandunghcmut/PhoWhisper-tiny-CTC"  # Alternative source
+  huggingface_filename: "best-val_wer=0.3986.ckpt"  # File to download from HF
+
+inference:
+  device: "cpu"
+  half_precision: false  # Whether to use half precision (not recommended for CPU)
+  batch_size: 1
+  num_workers: 0  # Lower for CPU inference
+  max_audio_length: 30  # Maximum audio length in seconds
+
+audio:
+  sampling_rate: 16000
+  feature_size: 80
+  channels: 1
+  
+logging:
+  log_predictions: true
+  save_audio: false
+  output_dir: "outputs" 

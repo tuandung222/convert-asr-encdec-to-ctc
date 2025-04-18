@@ -1,0 +1,20 @@
+model:
+  name: "vinai/PhoWhisper-tiny"
+  hidden_size: 384  # Matches PhoWhisper-tiny configuration
+  dropout: 0.1
+  ctc_head:
+    hidden_size: 384
+    num_layers: 2
+    use_layer_norm: true
+    use_gelu: true
+
+tokenizer:
+  vocab_size: 256  # Will be automatically updated from pretrained tokenizer
+  pad_token_id: 0  # Will be automatically updated from pretrained tokenizer
+  bos_token_id: 1  # Will be automatically updated from pretrained tokenizer
+  eos_token_id: 2  # Will be automatically updated from pretrained tokenizer
+
+audio:
+  sampling_rate: 16000
+  feature_size: 80
+  max_length: 480000  # 30 seconds at 16kHz 

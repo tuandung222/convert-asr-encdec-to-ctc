@@ -1,0 +1,135 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+*.egg-info/
+.installed.cfg
+*.egg
+MANIFEST
+
+# Virtual Environment
+venv/
+env/
+ENV/
+.env
+.venv
+env.bak/
+venv.bak/
+
+# Jupyter Notebook
+.ipynb_checkpoints
+*/.ipynb_checkpoints/*
+notebooks/.ipynb_checkpoints/
+
+# PyTorch
+*.pt
+*.pth
+*.ckpt
+*.ckpt.*
+checkpoints/
+runs/
+wandb/
+lightning_logs/
+logs/
+
+# Data
+data/
+datasets/
+*.csv
+*.json
+*.parquet
+*.h5
+*.hdf5
+*.npy
+*.npz
+*.pkl
+*.pickle
+*.tar
+*.gz
+*.zip
+*.rar
+*.7z
+
+# Audio files
+*.wav
+*.mp3
+*.ogg
+*.flac
+*.m4a
+*.aac
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+.DS_Store
+Thumbs.db
+
+# Logs
+*.log
+logs/
+tensorboard/
+events.out.tfevents.*
+
+# Testing
+.coverage
+htmlcov/
+.pytest_cache/
+.tox/
+.nox/
+coverage.xml
+*.cover
+.hypothesis/
+
+# Distribution / packaging
+.Python
+env/
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+*.egg-info/
+.installed.cfg
+*.egg
+
+# Hydra
+outputs/
+multirun/
+
+# Model artifacts
+models/
+saved_models/
+*.onnx
+*.tflite
+*.pb
+*.tflite
+*.mlmodel
+
+# Temporary files
+tmp/
+temp/
+.tmp/
+.temp/ 
