@@ -48,21 +48,21 @@ services:
       - asr-network
 
   # Gradio Demo App
-  gradio:
-    build:
-      context: .
-      dockerfile: src/app/Dockerfile.gradio
-    ports:
-      - "7860:7860"
-    environment:
-      - INFERENCE_DEVICE=cpu
-      - GRADIO_SHARE=false
-    volumes:
-      - ./checkpoints:/app/checkpoints
-    depends_on:
-      - api
-    networks:
-      - asr-network
+  # gradio:
+  #   build:
+  #     context: .
+  #     dockerfile: src/app/Dockerfile.gradio
+  #   ports:
+  #     - "7860:7860"
+  #   environment:
+  #     - INFERENCE_DEVICE=cpu
+  #     - GRADIO_SHARE=false
+  #   volumes:
+  #     - ./checkpoints:/app/checkpoints
+  #   depends_on:
+  #     - api
+  #   networks:
+  #     - asr-network
 
   # Prometheus for metrics
   prometheus:
@@ -94,6 +94,7 @@ services:
       - GF_SECURITY_ADMIN_USER=admin
       - GF_SECURITY_ADMIN_PASSWORD=admin
       - GF_USERS_ALLOW_SIGN_UP=false
+      - GF_INSTALL_PLUGINS=
     depends_on:
       - prometheus
     restart: unless-stopped

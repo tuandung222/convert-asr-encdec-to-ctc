@@ -8,4 +8,14 @@ datasources:
     url: http://prometheus:9090
     isDefault: true
     editable: true
+    version: 1
+
+  # Ensure Pyroscope datasource added by the plugin is not default
+  - name: Pyroscope
+    type: grafana-pyroscope-datasource
+    access: proxy
+    orgId: 1
+    url: http://pyroscope:4040
+    isDefault: false
+    editable: true
     version: 1 
