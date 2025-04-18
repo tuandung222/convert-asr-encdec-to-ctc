@@ -6,14 +6,17 @@ import sys
 import logging
 import tempfile
 from pathlib import Path
-from typing import List, Optional
+from typing import List, Optional, Dict, Any
 import numpy as np
 import torch
+import time
+from pydub import AudioSegment
+import io
 
 # Add parent directory to path
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-from fastapi import FastAPI, File, UploadFile, HTTPException, BackgroundTasks, Query
+from fastapi import FastAPI, File, UploadFile, HTTPException, BackgroundTasks, Query, Form
 from fastapi.responses import JSONResponse
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
@@ -34,6 +37,7 @@ from prometheus_fastapi_instrumentator import Instrumentator
 from src.models.model_manager import ModelManager
 from src.utils.config import setup_config_for_inference
 from src.utils.logging import setup_logging
+from src.models.inference_model import create_asr_model
 
 # Configure logging
 logger = logging.getLogger(__name__)
@@ -69,26 +73,47 @@ app.add_middleware(
 # Add Prometheus instrumentation
 Instrumentator().instrument(app).expose(app)
 
+# Supported models (currently only one model is supported)
+SUPPORTED_MODELS = ["phowhisper-tiny-ctc"]
+SUPPORTED_LANGUAGES = ["vi", "en", "auto"]
+
+# Global model cache
+models = {}
+
+def get_model(model_id: str, device: str = "cpu"):
+    """Get or load the model for the given ID"""
+    model_key = f"{model_id}_{device}"
+    
+    if model_key not in models:
+        logger.info(f"Loading model {model_id} on {device}")
+        
+        # Map friendly model name to actual model parameters
+        if model_id == "phowhisper-tiny-ctc":
+            models[model_key] = create_asr_model(
+                model_type="pytorch",
+                model_name="vinai/PhoWhisper-tiny",
+                repo_id="tuandunghcmut/PhoWhisper-tiny-CTC",
+                checkpoint_filename="best-val_wer=0.3986.ckpt",
+                use_cuda=(device == "cuda")
+            )
+        else:
+            raise ValueError(f"Unsupported model ID: {model_id}")
+            
+    return models[model_key]
+
 # Initialize model
 @app.on_event("startup")
 async def startup_event():
-    logger.info("Initializing model...")
+    logger.info("Starting up the Vietnamese ASR API...")
     
-    # Set up configuration for inference
-    config = setup_config_for_inference(
-        model_config_path=os.getenv("MODEL_CONFIG_PATH", "configs/model_config.yaml"),
-        inference_config_path=os.getenv("INFERENCE_CONFIG_PATH", "configs/inference_config.yaml"),
-        override_values={
-            "inference.device": os.getenv("INFERENCE_DEVICE", "cpu"),
-            "model.checkpoint_path": os.getenv("MODEL_CHECKPOINT_PATH", "checkpoints/best-val_wer.ckpt"),
-            "model.huggingface_repo_id": os.getenv("HUGGINGFACE_REPO_ID", "tuandunghcmut/PhoWhisper-tiny-CTC"),
-            "model.huggingface_filename": os.getenv("HUGGINGFACE_FILENAME", "best-val_wer=0.3986.ckpt"),
-        }
-    )
-    
-    # Create model manager
-    app.state.model_manager = ModelManager(config)
-    logger.info("Model initialized successfully!")
+    # Pre-load the default model
+    try:
+        # Use environment variable to determine device, defaulting to CPU
+        device = os.environ.get("INFERENCE_DEVICE", "cpu")
+        get_model("phowhisper-tiny-ctc", device)
+        logger.info("Default model loaded successfully")
+    except Exception as e:
+        logger.error(f"Error loading default model: {str(e)}")
 
 # Define response models
 class TranscriptionResponse(BaseModel):
@@ -103,78 +128,118 @@ class BatchTranscriptionResponse(BaseModel):
     total_audio_duration: float
 
 # Define API endpoints
+@app.get("/")
+async def root():
+    """Root endpoint with API information"""
+    return {
+        "message": "Vietnamese ASR API is running",
+        "supported_models": SUPPORTED_MODELS,
+        "supported_languages": SUPPORTED_LANGUAGES
+    }
+
+@app.get("/models")
+async def get_models():
+    """Get available models"""
+    return {
+        "models": SUPPORTED_MODELS
+    }
+
+@app.get("/languages")
+async def get_languages():
+    """Get supported languages"""
+    return {
+        "languages": SUPPORTED_LANGUAGES
+    }
+
 @app.get("/health")
 async def health_check():
-    """Health check endpoint."""
-    if not hasattr(app.state, "model_manager"):
-        return JSONResponse(
-            status_code=503,
-            content={"status": "error", "message": "Model not initialized"}
-        )
-    return {"status": "ok", "message": "Service is healthy"}
+    """Health check endpoint"""
+    return {"status": "healthy"}
 
-@app.post("/transcribe", response_model=TranscriptionResponse)
+def _process_audio_file(file_path: str, model_id: str, language: str):
+    """Process audio file with the specified model"""
+    try:
+        # Get the model
+        device = os.environ.get("INFERENCE_DEVICE", "cpu")
+        model = get_model(model_id, device)
+        
+        # Transcribe the audio
+        result = model.transcribe(file_path)
+        
+        # Add additional information to the result
+        result["model"] = model_id
+        if language != "auto":  # If a specific language was requested
+            result["language"] = language
+            
+        return result
+    except Exception as e:
+        logger.error(f"Error transcribing audio: {str(e)}")
+        return {
+            "success": False,
+            "error": str(e)
+        }
+
+@app.post("/transcribe")
 async def transcribe_audio(
     file: UploadFile = File(...),
-    background_tasks: BackgroundTasks = None
+    model: str = Form("phowhisper-tiny-ctc"),
+    language: str = Form("vi")
 ):
     """
-    Transcribe audio file to text.
+    Transcribe an audio file.
     
-    - **file**: Audio file to transcribe (WAV, MP3, FLAC, OGG, M4A)
-    
-    Returns the transcribed text, confidence score, and processing information.
+    Args:
+        file: Audio file to transcribe
+        model: Model ID to use for transcription
+        language: Language of the audio
+        
+    Returns:
+        Transcription result
     """
-    with tracer.start_as_current_span("transcribe_audio") as span:
+    # Validate model
+    if model not in SUPPORTED_MODELS:
+        raise HTTPException(
+            status_code=400, 
+            detail=f"Model not supported. Choose from {SUPPORTED_MODELS}"
+        )
+    
+    # Validate language
+    if language not in SUPPORTED_LANGUAGES:
+        raise HTTPException(
+            status_code=400, 
+            detail=f"Language not supported. Choose from {SUPPORTED_LANGUAGES}"
+        )
+    
+    try:
+        # Check file type
+        if not file.content_type.startswith("audio/"):
+            logger.warning(f"Received file with content type: {file.content_type}")
+        
+        # Create a temporary file to save the uploaded audio
+        with tempfile.NamedTemporaryFile(delete=False, suffix=f".{file.filename.split('.')[-1]}") as temp_file:
+            # Read the uploaded file and write to the temporary file
+            content = await file.read()
+            temp_file.write(content)
+            temp_file_path = temp_file.name
+        
         try:
-            # Validate file
-            if not file.filename.lower().endswith(('.wav', '.mp3', '.flac', '.ogg', '.m4a')):
-                raise HTTPException(status_code=400, detail="Unsupported file format")
+            # Process the audio file
+            result = _process_audio_file(temp_file_path, model, language)
             
-            # Save uploaded file to temp directory
-            with tempfile.NamedTemporaryFile(delete=False, suffix=os.path.splitext(file.filename)[1]) as temp_file:
-                temp_file.write(await file.read())
-                temp_file_path = temp_file.name
+            # Add filename to result
+            result["filename"] = file.filename
             
-            span.set_attribute("audio.filename", file.filename)
-            span.set_attribute("audio.path", temp_file_path)
+            return result
+        finally:
+            # Clean up the temporary file
+            os.unlink(temp_file_path)
             
-            # Process with model
-            import time
-            start_time = time.time()
-            
-            with tracer.start_as_current_span("model_inference") as model_span:
-                # Get audio duration
-                from src.utils.audio import get_audio_duration
-                audio_duration = get_audio_duration(temp_file_path)
-                
-                # Transcribe audio
-                transcription = app.state.model_manager.transcribe_file(temp_file_path)
-                
-                processing_time = time.time() - start_time
-                model_span.set_attribute("model.inference_time", processing_time)
-                model_span.set_attribute("audio.duration", audio_duration)
-            
-            # Clean up temp file (in background to not block response)
-            if background_tasks:
-                background_tasks.add_task(os.unlink, temp_file_path)
-            
-            response = TranscriptionResponse(
-                text=transcription,
-                processing_time=processing_time,
-                audio_duration=audio_duration,
-                confidence=None  # We don't have confidence scores yet
-            )
-            
-            span.set_attribute("processing.time", processing_time)
-            span.set_attribute("processing.rtf", processing_time / audio_duration if audio_duration > 0 else 0)
-            
-            return response
-            
-        except Exception as e:
-            logger.error(f"Error transcribing audio: {e}")
-            span.record_exception(e)
-            raise HTTPException(status_code=500, detail=str(e))
+    except Exception as e:
+        logger.error(f"Error processing audio: {str(e)}")
+        raise HTTPException(
+            status_code=500,
+            detail=f"Error processing audio: {str(e)}"
+        )
 
 @app.post("/batch-transcribe", response_model=BatchTranscriptionResponse)
 async def batch_transcribe(

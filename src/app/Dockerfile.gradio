@@ -8,6 +8,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     g++ \
     libsndfile1 \
     ffmpeg \
+    git \
     && apt-get clean \
     && rm -rf /var/lib/apt/lists/*
 
@@ -15,25 +16,23 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
 
-# Copy model code and API code
+# Copy source code and app code
 COPY src /app/src
-COPY api /app/api
 COPY scripts /app/scripts
 COPY checkpoints /app/checkpoints
 
-# Create directory for checkpoints
-RUN mkdir -p /app/checkpoints
+# Create examples directory and directory for downloaded checkpoints
+RUN mkdir -p /app/examples /app/checkpoints
 
 # Set environment variables
 ENV PYTHONUNBUFFERED=1 \
     PYTHONDONTWRITEBYTECODE=1 \
-    PORT=8000 \
+    PORT=7860 \
     INFERENCE_DEVICE=cpu \
-    ENVIRONMENT=production \
-    MODEL_CHECKPOINT_PATH=/app/checkpoints/best-val_wer=0.3986.ckpt
+    GRADIO_SHARE=false
 
 # Expose the application port
-EXPOSE 8000
+EXPOSE 7860
 
 # Run the application
-CMD ["python", "-m", "api.app"] 
+CMD ["python", "-m", "src.app.gradio_demo"] 

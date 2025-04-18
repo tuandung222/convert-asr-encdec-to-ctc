@@ -9,7 +9,9 @@ services:
     ports:
       - "8000:8000"
     volumes:
-      - ./checkpoints:/app/checkpoints:ro
+      - ./src:/app/src
+      - ./api:/app/api
+      - ./checkpoints:/app/checkpoints
     environment:
       - PORT=8000
       - INFERENCE_DEVICE=cpu
@@ -26,6 +28,41 @@ services:
       retries: 3
       start_period: 40s
     restart: unless-stopped
+    networks:
+      - asr-network
+
+  # Streamlit UI
+  ui:
+    build:
+      context: .
+      dockerfile: ui/Dockerfile
+    ports:
+      - "8501:8501"
+    environment:
+      - API_URL=http://api:8000
+    depends_on:
+      - api
+    volumes:
+      - ./ui:/app
+    networks:
+      - asr-network
+
+  # Gradio Demo App
+  gradio:
+    build:
+      context: .
+      dockerfile: src/app/Dockerfile.gradio
+    ports:
+      - "7860:7860"
+    environment:
+      - INFERENCE_DEVICE=cpu
+      - GRADIO_SHARE=false
+    volumes:
+      - ./checkpoints:/app/checkpoints
+    depends_on:
+      - api
+    networks:
+      - asr-network
 
   # Prometheus for metrics
   prometheus:
@@ -41,6 +78,8 @@ services:
       - --web.console.libraries=/usr/share/prometheus/console_libraries
       - --web.console.templates=/usr/share/prometheus/consoles
     restart: unless-stopped
+    networks:
+      - asr-network
 
   # Grafana for dashboards
   grafana:
@@ -57,6 +96,8 @@ services:
     depends_on:
       - prometheus
     restart: unless-stopped
+    networks:
+      - asr-network
 
   # Jaeger for distributed tracing
   jaeger:
@@ -67,35 +108,41 @@ services:
     environment:
       - COLLECTOR_ZIPKIN_HTTP_PORT=9411
     restart: unless-stopped
-
-  # Node exporter for system metrics
-  node-exporter:
-    image: prom/node-exporter:latest
-    volumes:
-      - /proc:/host/proc:ro
-      - /sys:/host/sys:ro
-      - /:/rootfs:ro
-    command:
-      - '--path.procfs=/host/proc'
-      - '--path.sysfs=/host/sys'
-      - '--collector.filesystem.ignored-mount-points=^/(sys|proc|dev|host|etc)($$|/)'
-    restart: unless-stopped
-    expose:
-      - 9100
-    
-  # cAdvisor for container metrics
-  cadvisor:
-    image: gcr.io/cadvisor/cadvisor:latest
-    volumes:
-      - /:/rootfs:ro
-      - /var/run:/var/run:ro
-      - /sys:/sys:ro
-      - /var/lib/docker/:/var/lib/docker:ro
-      - /dev/disk/:/dev/disk:ro
-    ports:
-      - "8080:8080"
-    restart: unless-stopped
+    networks:
+      - asr-network
 
 volumes:
   prometheus_data:
-  grafana_data: 
+  grafana_data:
+
+networks:
+  asr-network:
+    driver: bridge
+
+# Node exporter for system metrics
+node-exporter:
+  image: prom/node-exporter:latest
+  volumes:
+    - /proc:/host/proc:ro
+    - /sys:/host/sys:ro
+    - /:/rootfs:ro
+  command:
+    - '--path.procfs=/host/proc'
+    - '--path.sysfs=/host/sys'
+    - '--collector.filesystem.ignored-mount-points=^/(sys|proc|dev|host|etc)($$|/)'
+  restart: unless-stopped
+  expose:
+    - 9100
+
+# cAdvisor for container metrics
+cadvisor:
+  image: gcr.io/cadvisor/cadvisor:latest
+  volumes:
+    - /:/rootfs:ro
+    - /var/run:/var/run:ro
+    - /sys:/sys:ro
+    - /var/lib/docker/:/var/lib/docker:ro
+    - /dev/disk/:/dev/disk:ro
+  ports:
+    - "8080:8080"
+  restart: unless-stopped 

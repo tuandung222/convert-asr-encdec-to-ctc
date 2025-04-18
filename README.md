@@ -1,265 +1,274 @@
-# Vietnamese Speech Recognition with CTC
+# Vietnamese Speech Recognition with PhoWhisper-CTC
 
-This project implements an Automatic Speech Recognition (ASR) system for Vietnamese using CTC (Connectionist Temporal Classification). The model is based on a modified version of PhoWhisper, converting its encoder-decoder architecture to a CTC-based architecture for more efficient training and inference.
+This project implements an Automatic Speech Recognition (ASR) system for Vietnamese using a CTC-based model derived from PhoWhisper. The model replaces the encoder-decoder architecture with a more efficient CTC-based approach for faster inference and simplified training.
+
+## Features
+
+- Fast and accurate Vietnamese speech recognition
+- CTC-based architecture for efficient inference
+- Multiple UI options (Streamlit and Gradio)
+- FastAPI backend for production use
+- Docker support for easy deployment
+- Monitoring and observability built-in
+
+## Model Architecture
+
+The model is based on the PhoWhisper architecture, with the following modifications:
+- Retains the encoder from PhoWhisper for feature extraction
+- Replaces the decoder with a CTC head for sequence modeling
+- Simplifies the inference process by removing the need for autoregressive decoding
+
+The CTC (Connectionist Temporal Classification) approach offers several advantages:
+- Faster inference (2-3x faster than real-time)
+- Simpler training with parallel decoding
+- Reduced model complexity and memory usage
+- Smaller deployment footprint
+
+## Training Process
+
+The training process involves:
+
+1. **Data Preparation**: 
+   - Using a subset of the VietBud500 dataset for Vietnamese speech
+   - Processing audio data with WhisperProcessor for feature extraction
+   - Preparing targets using CTC-based alignment
+
+2. **Model Setup**:
+   - Starting with a pre-trained PhoWhisper encoder
+   - Adding a custom CTC head consisting of a linear layer
+   - Setting up CTC loss with the pad token as the blank token
+
+3. **Training Loop**:
+   - Using PyTorch Lightning for training management
+   - Implementing AdamW optimizer with weight decay
+   - Applying cosine learning rate scheduling with warmup
+   - Training for 64 epochs with batch size of 24
+   - Using mixed precision (bfloat16) for faster training
+
+4. **Evaluation Metrics**:
+   - Monitoring Word Error Rate (WER) on validation set
+   - Using custom EvalCallback to track model progress
+   - Implementing custom CTC decoding for prediction
 
 ## Project Structure
 
 ```
-speech_processing/
-├── api/               # FastAPI implementation
-├── configs/           # Configuration files for model and training
-├── k8s/               # Kubernetes deployment files
-│   └── helm/          # Helm charts for k8s deployment
-├── monitoring/        # Monitoring configuration
-├── src/               # Source code
-│   ├── data/          # Data loading and preprocessing
-│   ├── models/        # Model architecture definitions
-│   ├── training/      # Training utilities
-│   └── utils/         # Helper functions
-├── scripts/           # Training and inference scripts
-├── notebooks/         # Jupyter notebooks for exploration
-├── run.py             # Main entry point
-└── tests/             # Unit tests
+vietnamese-asr/
+├── api/                  # FastAPI implementation
+│   ├── __init__.py       # Package initialization
+│   ├── app.py            # API server implementation
+│   └── Dockerfile        # Docker config for API
+├── src/                  # Core source code
+│   ├── __init__.py
+│   ├── models/           # Model definitions
+│   │   ├── __init__.py
+│   │   └── inference_model.py  # Inference model implementation
+│   ├── utils/            # Utility functions
+│   │   └── __init__.py
+│   └── app/              # App implementations
+│       └── gradio_demo.py    # Gradio demo implementation
+├── ui/                   # UI implementation
+│   ├── app.py            # Streamlit app
+│   ├── requirements.txt  # UI dependencies
+│   └── static/           # Static assets
+├── examples/             # Example audio files
+├── notebooks/            # Development notebooks
+│   ├── training.py       # Training code
+│   └── evaluation_after_training.py  # Evaluation code
+├── scripts/              # Utility scripts
+│   └── app.py            # App runner
+├── app.py                # Gradio app entry point
+├── run.py                # Unified entry point
+├── test_model.py         # Model testing script
+├── requirements.txt      # Project dependencies
+├── Dockerfile            # Main Dockerfile
+├── docker-compose.yml    # Docker composition
+└── README.md             # Project documentation
 ```
 
-## MLOps Architecture
+## Training and Evaluation Details
 
-This project follows MLOps best practices with a modern cloud-native architecture:
+### VietBud500 DataModule
 
-1. **API Service** - FastAPI-based REST API for speech recognition
-2. **Model Service** - Optimized for CPU inference with caching
-3. **Observability Stack**:
-   - Prometheus for metrics collection
-   - Grafana for dashboard visualization
-   - Jaeger for distributed tracing
-4. **CI/CD Pipeline** with Jenkins
-5. **Container Orchestration** using Kubernetes with 3 replicas
-6. **Infrastructure as Code** with Helm charts
+The `VietBud500DataModule` handles data loading:
+- Loads a subset of the VietBud500 dataset
+- Preprocesses audio with WhisperProcessor
+- Creates train/validation/test splits
+- Implements collate_fn for batch preparation
 
-See `architecture.md` for detailed architecture documentation.
+### PhoWhisperLightningModule
 
-## Installation
+The `PhoWhisperLightningModule` implements:
+- CTC-based model architecture
+- Forward pass logic
+- CTC loss computation
+- Training, validation, and test steps
+- Optimizer configuration with AdamW
+- CTC decoding for prediction
 
-1. Clone the repository:
+### Evaluation Approach
+
+1. **During Training**:
+   - Validation WER is calculated after each epoch
+   - Best model checkpoint is saved based on lowest WER
+   - Sample predictions are logged for manual inspection
+
+2. **Final Evaluation**:
+   - Test set evaluation using best checkpoint
+   - WER calculation on full test set
+   - Error analysis and performance metrics
+
+3. **Inference Performance**:
+   - Real-time factor (RTF) measurement
+   - Memory usage tracking
+   - System requirements assessment
+
+## Architecture
+
+The project consists of several components:
+
+1. **ASR Model**: A CTC-based Vietnamese speech recognition model using PhoWhisper's encoder
+2. **FastAPI Server**: RESTful API for serving the ASR model
+3. **Streamlit UI**: User-friendly interface for interacting with the API
+4. **Gradio Demo**: Simple demo interface for quick testing
+5. **Monitoring Stack**: Prometheus, Grafana, and Jaeger for observability
+
+## Getting Started
+
+### Prerequisites
+
+- Python 3.10+
+- Docker and Docker Compose (for containerized deployment)
+- 1GB+ of RAM for model inference
+- 500MB+ of disk space
+
+### Installation
+
+Clone the repository:
+
 ```bash
 git clone https://github.com/tuandung222/Convert-PhoWhisper-ASR-from-encdec-to-ctc.git
 cd Convert-PhoWhisper-ASR-from-encdec-to-ctc
 ```
 
-2. Create a virtual environment:
-```bash
-python -m venv venv
-source venv/bin/activate  # On Windows: venv\Scripts\activate
-```
+### Option 1: Run with Docker Compose (Recommended)
 
-3. Install dependencies:
-```bash
-pip install -r requirements.txt
-```
-
-## Quick Start
-
-### Local Model Usage
-
-The project provides a single entry point (`run.py`) for all operations:
-
-```bash
-# Training
-python run.py train
-
-# Inference
-python run.py infer --audio /path/to/audio_file_or_directory
-
-# Interactive Demo
-python run.py app
-```
-
-### Docker Deployment
-
-Deploy the entire stack with Docker Compose:
+The easiest way to run the entire stack is with Docker Compose:
 
 ```bash
 docker-compose up -d
 ```
 
 This will start:
-- The ASR API service
-- Prometheus for metrics
-- Grafana for dashboards (accessible at http://localhost:3000)
-- Jaeger for tracing (accessible at http://localhost:16686)
+- FastAPI Server (http://localhost:8000)
+- Streamlit UI (http://localhost:8501)
+- Gradio Demo (http://localhost:7860)
+- Monitoring Stack
+  - Prometheus (http://localhost:9090)
+  - Grafana (http://localhost:3000)
+  - Jaeger (http://localhost:16686)
 
-### Kubernetes Deployment
+### Option 2: Run Components Individually
 
-Deploy to Kubernetes:
+#### API Server
 
 ```bash
-# Deploy API service
-kubectl apply -f k8s/api-deployment.yaml
+# Install dependencies
+pip install -r requirements.txt
 
-# Deploy monitoring using Helm
-helm repo add prometheus-community https://prometheus-community.github.io/helm-charts
-helm repo add grafana https://grafana.github.io/helm-charts
-helm dependency update k8s/helm/monitoring
-helm install asr-monitoring k8s/helm/monitoring
+# Run the API server
+python -m api.app
 ```
 
-## Model Architecture
+The API will be available at http://localhost:8000
 
-The model uses the encoder from PhoWhisper and replaces the decoder with a CTC head. This modification:
-- Simplifies the architecture
-- Enables faster training and inference
-- Maintains competitive accuracy
+#### Streamlit UI
 
-Key components:
-- PhoWhisper encoder for feature extraction
-- Custom CTC head for Vietnamese ASR
-- Efficient data loading with PyTorch Lightning
-
-## Training
-
-1. Configure your training parameters in `configs/training_config.yaml`
-2. Run training:
 ```bash
-python run.py train
+# Install UI dependencies
+pip install -r ui/requirements.txt
+
+# Run the Streamlit UI
+cd ui
+streamlit run app.py
 ```
 
-Training features:
-- Mixed precision training
-- Multi-GPU support
-- Wandb logging
-- Checkpointing
+The UI will be available at http://localhost:8501
 
-## CPU Inference
-
-This model is optimized for CPU inference, making it suitable for deployment in environments without GPUs.
-
-### Option 1: Direct Script Inference
-
-For batch processing of audio files:
+#### Gradio Demo
 
 ```bash
-python run.py infer --audio /path/to/audio_file_or_directory --device cpu
-```
+# Install dependencies
+pip install -r requirements.txt
 
-Parameters:
-- `--audio`: Path to an audio file or directory containing audio files
-- `--output`: Path to save transcription results (default: outputs/transcriptions.txt)
-- `--checkpoint`: Path to model checkpoint (optional)
-- `--device`: Device to run inference on (default: cpu)
-
-### Option 2: Interactive Demo with Gradio
-
-For interactive testing with a web interface:
-
-```bash
+# Run the Gradio demo
 python run.py app --device cpu
 ```
 
-Parameters:
-- `--checkpoint`: Path to model checkpoint (optional)
-- `--device`: Device to run inference on (default: cpu)
-- `--share`: Share the app publicly through Gradio
-- `--port`: Port to run the app on (default: 7860)
+The Gradio demo will be available at http://localhost:7860
 
-### Option 3: REST API
+## Using the Model
 
-Access the model through a REST API:
+### API Endpoints
+
+- `GET /`: API information
+- `GET /models`: List available models
+- `GET /languages`: List supported languages
+- `GET /health`: Health check
+- `POST /transcribe`: Transcribe audio file
+
+Example transcription request:
 
 ```bash
-# Start the API service
-cd api
-uvicorn main:app --host 0.0.0.0 --port 8000
-
-# Make a transcription request
 curl -X POST "http://localhost:8000/transcribe" \
   -H "accept: application/json" \
   -H "Content-Type: multipart/form-data" \
-  -F "file=@/path/to/audio/file.wav"
+  -F "file=@/path/to/audio.wav" \
+  -F "model=phowhisper-tiny-ctc" \
+  -F "language=vi"
 ```
 
-### Download Pre-trained Model
+### Streamlit UI
 
-You can download the pre-trained model from HuggingFace:
+The Streamlit UI provides a more user-friendly interface for:
+- Uploading audio files for transcription
+- Recording audio directly in the browser
+- Viewing transcription history
+- Visualizing confidence scores
 
-```python
-from huggingface_hub import hf_hub_download
+### Gradio Demo
 
-# Download the checkpoint
-checkpoint_path = hf_hub_download(
-    repo_id="tuandunghcmut/PhoWhisper-tiny-CTC",
-    filename="best-val_wer=0.3986.ckpt",
-    local_dir="./checkpoints",
-)
-```
+The Gradio demo provides a simple interface for:
+- Uploading audio files
+- Recording audio
+- Viewing transcription results
 
-Then use it for inference:
+## Customization
 
-```bash
-python run.py infer --audio /path/to/audio --checkpoint ./checkpoints/best-val_wer=0.3986.ckpt --device cpu
-```
+### Environment Variables
 
-## CPU Performance
+- `API_URL`: URL of the FastAPI server (default: http://localhost:8000)
+- `PORT`: Port for the API server (default: 8000)
+- `INFERENCE_DEVICE`: Device to run inference on (cpu or cuda, default: cpu)
+- `GRADIO_SHARE`: Whether to share the Gradio demo publicly (default: false)
 
-On a standard CPU, the model achieves:
-- Real-time factor (RTF): ~0.3-0.5x (2-3x faster than real-time)
-- Memory usage: < 500MB
-- Minimal latency for short audio clips
+## Model Performance
 
-## Monitoring & Observability
+- Word Error Rate (WER): ~41% on the test set
+- Real-time factor: <0.5x (more than 2x faster than real-time)
+- Memory usage: <500MB
 
-### Metrics
+## Troubleshooting
 
-Access Prometheus metrics at:
-- http://localhost:9090 (when running with Docker Compose)
-- https://your-domain/prometheus (when deployed to Kubernetes)
-
-### Dashboards
-
-Access Grafana dashboards at:
-- http://localhost:3000 (when running with Docker Compose)
-- https://your-domain/grafana (when deployed to Kubernetes)
-
-Default credentials: admin/admin
-
-### Tracing
-
-Access Jaeger tracing UI at:
-- http://localhost:16686 (when running with Docker Compose)
-- https://your-domain/jaeger (when deployed to Kubernetes)
-
-## Evaluation
-
-The model achieves competitive results on Vietnamese speech recognition:
-- WER (Word Error Rate): 41% on the VietBud500 test set
-- CER (Character Error Rate): Comparable to state-of-the-art models
-
-## Contributing
-
-1. Fork the repository
-2. Create a feature branch
-3. Commit your changes
-4. Push to the branch
-5. Create a Pull Request
+- If the API server fails to start, check if the port is already in use
+- If the model fails to load, check if you have enough memory
+- If the transcription is poor, try using a different model or check the audio quality
 
 ## License
 
 This project is licensed under the MIT License - see the LICENSE file for details.
 
-## Citation
-
-If you use this code in your research, please cite:
-
-```bibtex
-@misc{vietnamese_asr_ctc,
-  author = {Dung Vo Pham Tuan},
-  title = {Vietnamese Speech Recognition with CTC},
-  year = {2024},
-  publisher = {GitHub},
-  url = {https://github.com/tuandung222/Convert-PhoWhisper-ASR-from-encdec-to-ctc}
-}
-```
-
 ## Acknowledgments
 
 - VINAI for the PhoWhisper model
-- VietBud500 dataset creators 
+- The creators of the VietBud500 dataset 
