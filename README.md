@@ -172,11 +172,11 @@ If you use this code in your research, please cite:
 
 ```bibtex
 @misc{vietnamese_asr_ctc,
-  author = {Your Name},
+  author = {Dung Vo Pham Tuan},
   title = {Vietnamese Speech Recognition with CTC},
   year = {2024},
   publisher = {GitHub},
-  url = {https://github.com/tuandung222/speech_processing}
+  url = {https://github.com/tuandung222/Convert-PhoWhisper-ASR-from-encdec-to-ctc}
 }
 ```
 
