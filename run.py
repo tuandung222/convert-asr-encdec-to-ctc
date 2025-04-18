@@ -9,7 +9,7 @@ import argparse
 # Add source directory to path
 sys.path.append(os.path.dirname(os.path.abspath(__file__)))
 
-from source.utils.logging import setup_logging, log_system_info
+from src.utils.logging import setup_logging, log_system_info
 
 def parse_args():
     """Parse command line arguments."""

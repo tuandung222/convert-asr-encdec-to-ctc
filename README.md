@@ -6,30 +6,44 @@ This project implements an Automatic Speech Recognition (ASR) system for Vietnam
 
 ```
 speech_processing/
+├── api/               # FastAPI implementation
 ├── configs/           # Configuration files for model and training
-│   ├── training_config.yaml     # Training configuration
-│   ├── inference_config.yaml    # Inference configuration
-│   └── model_config.yaml        # Model architecture configuration
-├── source/            # Source code
+├── k8s/               # Kubernetes deployment files
+│   └── helm/          # Helm charts for k8s deployment
+├── monitoring/        # Monitoring configuration
+├── src/               # Source code
 │   ├── data/          # Data loading and preprocessing
 │   ├── models/        # Model architecture definitions
 │   ├── training/      # Training utilities
 │   └── utils/         # Helper functions
 ├── scripts/           # Training and inference scripts
-│   ├── train.py       # Training script
-│   ├── inference.py   # Inference script for batch processing
-│   └── app.py         # Gradio app for interactive demo
 ├── notebooks/         # Jupyter notebooks for exploration
 ├── run.py             # Main entry point
 └── tests/             # Unit tests
 ```
 
+## MLOps Architecture
+
+This project follows MLOps best practices with a modern cloud-native architecture:
+
+1. **API Service** - FastAPI-based REST API for speech recognition
+2. **Model Service** - Optimized for CPU inference with caching
+3. **Observability Stack**:
+   - Prometheus for metrics collection
+   - Grafana for dashboard visualization
+   - Jaeger for distributed tracing
+4. **CI/CD Pipeline** with Jenkins
+5. **Container Orchestration** using Kubernetes with 3 replicas
+6. **Infrastructure as Code** with Helm charts
+
+See `architecture.md` for detailed architecture documentation.
+
 ## Installation
 
 1. Clone the repository:
 ```bash
-git clone https://github.com/yourusername/speech_processing.git
-cd speech_processing
+git clone https://github.com/tuandung222/Convert-PhoWhisper-ASR-from-encdec-to-ctc.git
+cd Convert-PhoWhisper-ASR-from-encdec-to-ctc
 ```
 
 2. Create a virtual environment:
@@ -45,21 +59,48 @@ pip install -r requirements.txt
 
 ## Quick Start
 
+### Local Model Usage
+
 The project provides a single entry point (`run.py`) for all operations:
 
-### Training:
 ```bash
+# Training
 python run.py train
-```
 
-### Inference:
-```bash
+# Inference
 python run.py infer --audio /path/to/audio_file_or_directory
+
+# Interactive Demo
+python run.py app
 ```
 
-### Interactive Demo:
+### Docker Deployment
+
+Deploy the entire stack with Docker Compose:
+
 ```bash
-python run.py app
+docker-compose up -d
+```
+
+This will start:
+- The ASR API service
+- Prometheus for metrics
+- Grafana for dashboards (accessible at http://localhost:3000)
+- Jaeger for tracing (accessible at http://localhost:16686)
+
+### Kubernetes Deployment
+
+Deploy to Kubernetes:
+
+```bash
+# Deploy API service
+kubectl apply -f k8s/api-deployment.yaml
+
+# Deploy monitoring using Helm
+helm repo add prometheus-community https://prometheus-community.github.io/helm-charts
+helm repo add grafana https://grafana.github.io/helm-charts
+helm dependency update k8s/helm/monitoring
+helm install asr-monitoring k8s/helm/monitoring
 ```
 
 ## Model Architecture
@@ -120,6 +161,22 @@ Parameters:
 - `--share`: Share the app publicly through Gradio
 - `--port`: Port to run the app on (default: 7860)
 
+### Option 3: REST API
+
+Access the model through a REST API:
+
+```bash
+# Start the API service
+cd api
+uvicorn main:app --host 0.0.0.0 --port 8000
+
+# Make a transcription request
+curl -X POST "http://localhost:8000/transcribe" \
+  -H "accept: application/json" \
+  -H "Content-Type: multipart/form-data" \
+  -F "file=@/path/to/audio/file.wav"
+```
+
 ### Download Pre-trained Model
 
 You can download the pre-trained model from HuggingFace:
@@ -147,6 +204,28 @@ On a standard CPU, the model achieves:
 - Real-time factor (RTF): ~0.3-0.5x (2-3x faster than real-time)
 - Memory usage: < 500MB
 - Minimal latency for short audio clips
+
+## Monitoring & Observability
+
+### Metrics
+
+Access Prometheus metrics at:
+- http://localhost:9090 (when running with Docker Compose)
+- https://your-domain/prometheus (when deployed to Kubernetes)
+
+### Dashboards
+
+Access Grafana dashboards at:
+- http://localhost:3000 (when running with Docker Compose)
+- https://your-domain/grafana (when deployed to Kubernetes)
+
+Default credentials: admin/admin
+
+### Tracing
+
+Access Jaeger tracing UI at:
+- http://localhost:16686 (when running with Docker Compose)
+- https://your-domain/jaeger (when deployed to Kubernetes)
 
 ## Evaluation
 

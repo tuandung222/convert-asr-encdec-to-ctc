@@ -7,8 +7,8 @@ from pytorch_lightning.loggers import WandbLogger
 from omegaconf import DictConfig
 import hydra
 
-from source.models.ctc_model import WhisperCTCModel
-from source.data.datamodule import VietBudDataModule
+from src.models.ctc_model import WhisperCTCModel
+from src.data.datamodule import VietBudDataModule
 
 logger = logging.getLogger(__name__)
 

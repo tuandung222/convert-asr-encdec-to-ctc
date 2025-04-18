@@ -10,12 +10,12 @@ import numpy as np
 from pathlib import Path
 import torch
 
-# Add parent directory to path to import source modules
+# Add parent directory to path to import src modules
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-from source.models.model_manager import ModelManager
-from source.utils.logging import setup_logging, log_system_info
-from source.utils.config import setup_config_for_inference
+from src.models.model_manager import ModelManager
+from src.utils.logging import setup_logging, log_system_info
+from src.utils.config import setup_config_for_inference
 
 # Set up logger
 logger = logging.getLogger(__name__)
