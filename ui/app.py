@@ -68,13 +68,32 @@ def check_api_status():
     except:
         return False
 
-def transcribe_audio(audio_file, model, language):
+def get_model_types():
+    try:
+        response = requests.get(f"{API_URL}/")
+        if response.status_code == 200:
+            data = response.json()
+            # Check if MODEL_TYPES is in the response
+            if "model_types" in data:
+                return data["model_types"]
+            else:
+                return ["pytorch", "onnx"]  # Default types if not specified
+        else:
+            st.error(f"Failed to get model types: {response.text}")
+            return ["pytorch", "onnx"]
+    except Exception as e:
+        st.error(f"Error connecting to API: {e}")
+        return ["pytorch", "onnx"]
+
+def transcribe_audio(audio_file, model, language, model_type=None):
     try:
         # Display debug info
-        st.write(f"Sending model={model}, language={language} to API")
+        st.write(f"Sending model={model}, language={language}, model_type={model_type} to API")
         
         files = {"file": audio_file}
         data = {"model": model, "language": language}
+        if model_type:
+            data["model_type"] = model_type
         
         with st.spinner("Transcribing audio..."):
             response = requests.post(f"{API_URL}/transcribe", files=files, data=data)

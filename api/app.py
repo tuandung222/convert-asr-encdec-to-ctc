@@ -5,7 +5,7 @@ import uuid
 import tempfile
 import logging
 from datetime import datetime
-from typing import Dict, List, Optional, Any
+from typing import Dict, List, Optional, Any, Union
 
 import uvicorn
 from fastapi import FastAPI, File, UploadFile, Form, HTTPException, Depends
@@ -43,7 +43,8 @@ try:
     from src.models.inference_model import create_asr_model, ASRInferenceModel
     from src.metrics import (
         REQUESTS, REQUEST_DURATION, TRANSCRIPTIONS, TRANSCRIPTION_DURATION,
-        AUDIO_DURATION, MODEL_LOADING_TIME, INFERENCE_IN_PROGRESS, Timer
+        AUDIO_DURATION, MODEL_LOADING_TIME, INFERENCE_IN_PROGRESS, Timer,
+        MODEL_LOAD_FAILURES  # Add new metric for tracking model load failures
     )
 except ImportError:
     logger.error("Failed to import required modules. Make sure the project structure is correct.")
@@ -116,7 +117,11 @@ app.add_middleware(
 # Create a dictionary to store the loaded models
 model_cache = {}
 
-def get_model(model_name: str = DEFAULT_MODEL) -> ASRInferenceModel:
+# Preload models configuration
+PRELOAD_MODELS = os.environ.get("PRELOAD_MODELS", "true").lower() == "true"
+MODEL_TYPES = os.environ.get("MODEL_TYPES", "pytorch").split(",")  # pytorch,onnx
+
+def get_model(model_name: str = DEFAULT_MODEL, model_type: str = None) -> ASRInferenceModel:
     """Get or load a model from the cache"""
     global model_cache
     
@@ -131,16 +136,20 @@ def get_model(model_name: str = DEFAULT_MODEL) -> ASRInferenceModel:
     if not model_path:
         raise HTTPException(status_code=400, detail=f"Model {model_name} not found")
     
-    # Create a cache key that includes the model name and device
-    cache_key = f"{model_name}_{device}"
+    # Use specified model_type or default from environment
+    if model_type is None:
+        model_type = MODEL_TYPES[0]  # Use first type as default
+    
+    # Create a cache key that includes the model name, type and device
+    cache_key = f"{model_name}_{model_type}_{device}"
     
     # Check if the model is already loaded
     if cache_key not in model_cache:
-        logger.info(f"Loading model {model_name} on {device}")
+        logger.info(f"Loading model {model_name} (type: {model_type}) on {device}")
         try:
             # Track model loading time
-            with Timer(MODEL_LOADING_TIME, {"model": model_name, "checkpoint": model_path}):
-                model_cache[cache_key] = create_asr_model(model_path, device)
+            with Timer(MODEL_LOADING_TIME, {"model": model_name, "checkpoint": model_path, "type": model_type}):
+                model_cache[cache_key] = create_asr_model(model_path, device, model_type=model_type)
             logger.info(f"Model {model_name} loaded successfully")
         except Exception as e:
             logger.error(f"Error loading model {model_name}: {str(e)}")
@@ -148,6 +157,62 @@ def get_model(model_name: str = DEFAULT_MODEL) -> ASRInferenceModel:
     
     return model_cache[cache_key]
 
+@app.on_event("startup")
+async def startup_event():
+    """Preload models when application starts"""
+    if PRELOAD_MODELS:
+        logger.info("Preloading models on startup...")
+        total_models = len(MODELS) * len(MODEL_TYPES)
+        successful_loads = 0
+        failed_loads = 0
+        
+        for model_name in MODELS:
+            for model_type in MODEL_TYPES:
+                try:
+                    logger.info(f"Preloading model {model_name} ({model_type})... [{successful_loads + failed_loads + 1}/{total_models}]")
+                    start_time = time.time()
+                    model = get_model(model_name, model_type)
+                    
+                    # Perform a warmup inference to ensure the model is fully initialized
+                    try:
+                        logger.info(f"Running warmup inference for {model_name} ({model_type})...")
+                        # Create a small silence audio file in memory for warmup
+                        with tempfile.NamedTemporaryFile(suffix=".wav", delete=False) as temp_file:
+                            temp_file_path = temp_file.name
+                            # Write a tiny 0.1s silence WAV file (empty but valid audio)
+                            import numpy as np
+                            from scipy.io import wavfile
+                            sample_rate = 16000  # Standard sample rate
+                            duration = 0.1  # Short duration for quick warmup
+                            data = np.zeros(int(sample_rate * duration), dtype=np.int16)
+                            wavfile.write(temp_file_path, sample_rate, data)
+                        
+                        # Run inference on the silent audio
+                        _ = model.transcribe(temp_file_path)
+                        
+                        # Clean up the temporary file
+                        if os.path.exists(temp_file_path):
+                            os.remove(temp_file_path)
+                            
+                        logger.info(f"Warmup inference completed for {model_name} ({model_type})")
+                    except Exception as e:
+                        logger.warning(f"Warmup inference failed for {model_name} ({model_type}): {str(e)}")
+                        # Continue even if warmup fails - model is still loaded
+                    
+                    load_time = time.time() - start_time
+                    logger.info(f"✓ Successfully preloaded model {model_name} ({model_type}) in {load_time:.2f}s")
+                    successful_loads += 1
+                except Exception as e:
+                    logger.error(f"✗ Error preloading model {model_name} ({model_type}): {str(e)}")
+                    # Track failure in metrics if the metric exists
+                    if 'MODEL_LOAD_FAILURES' in globals():
+                        MODEL_LOAD_FAILURES.labels(model=model_name, type=model_type).inc()
+                    failed_loads += 1
+                    # Continue with other models even if one fails
+        
+        logger.info(f"Model preloading complete: {successful_loads} succeeded, {failed_loads} failed")
+    else:
+        logger.info("Model preloading disabled")
 
 # Add request ID middleware
 @app.middleware("http")
@@ -253,6 +318,7 @@ async def transcribe_audio(
     file: UploadFile = File(...),
     model: str = Form(DEFAULT_MODEL),
     language: str = Form(DEFAULT_LANGUAGE),
+    model_type: str = Form(None),
 ):
     """Transcribe an audio file"""
     # Validate language
@@ -263,6 +329,10 @@ async def transcribe_audio(
     if model not in MODELS:
         raise HTTPException(status_code=400, detail=f"Model {model} not available")
     
+    # Validate model type if provided
+    if model_type is not None and model_type not in MODEL_TYPES:
+        raise HTTPException(status_code=400, detail=f"Model type {model_type} not supported. Available types: {', '.join(MODEL_TYPES)}")
+    
     # Save the uploaded file to a temporary location
     with tempfile.NamedTemporaryFile(delete=False, suffix=os.path.splitext(file.filename)[1]) as temp_file:
         temp_file_path = temp_file.name
@@ -271,7 +341,7 @@ async def transcribe_audio(
     
     try:
         # Get the model
-        asr_model = get_model(model)
+        asr_model = get_model(model, model_type)
         
         # Track transcription start
         TRANSCRIPTIONS.labels(model=model, language=language, status="started").inc()

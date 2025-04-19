@@ -47,6 +47,12 @@ INFERENCE_IN_PROGRESS = Gauge(
     ['model']
 )
 
+MODEL_LOAD_FAILURES = Counter(
+    'model_load_failures_total',
+    'Number of times model loading has failed',
+    ['model', 'type']
+)
+
 # Utility class for measuring duration
 class Timer:
     def __init__(self, metric, labels=None):
