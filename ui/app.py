@@ -153,6 +153,48 @@ def create_confidence_chart(confidence):
     return fig
 
 
+def handle_recording():
+    try:
+        audio_bytes = audio_recorder(
+            recording_color="#e8b62c",
+            neutral_color="#6aa36f",
+            icon_name="microphone",
+            icon_size="2x"
+        )
+        if audio_bytes:
+            # Check audio length
+            audio = AudioSegment.from_wav(io.BytesIO(audio_bytes))
+            duration_seconds = len(audio) / 1000
+            
+            if duration_seconds < 0.5:
+                st.warning("⚠️ Recording too short. Please record at least 0.5 seconds.")
+                return None
+            if duration_seconds > 60:
+                st.warning("⚠️ Recording too long. Please keep it under 60 seconds.")
+                return None
+                
+            return audio_bytes
+    except Exception as e:
+        st.error(f"Recording error: {str(e)}")
+        return None
+
+
+def show_recording_steps(current_step):
+    steps = [
+        "Record your voice 🎙️",
+        "Review the recording 👂",
+        "Transcribe to text ✍️"
+    ]
+    
+    for i, step in enumerate(steps, 1):
+        if i < current_step:
+            st.markdown(f"✅ {i}. {step}")
+        elif i == current_step:
+            st.markdown(f"🔵 {i}. {step}")
+        else:
+            st.markdown(f"⚪ {i}. {step}")
+
+
 def main():
     st.set_page_config(
         page_title="Vietnamese ASR", page_icon="🎙️", layout="wide", initial_sidebar_state="expanded"
@@ -262,91 +304,111 @@ def main():
     with tab2:
         st.header("Record Audio")
 
+        # Initialize recording state
+        if "recording_step" not in st.session_state:
+            st.session_state.recording_step = 1
+        if "current_recording" not in st.session_state:
+            st.session_state.current_recording = None
+
         col1, col2 = st.columns([3, 1])
 
         with col1:
+            # Show progress steps
+            show_recording_steps(st.session_state.recording_step)
+            
             st.markdown("### 🎙️ Click the microphone to start/stop recording")
-
-            # Use streamlit-audiorecorder for a simpler recording experience
-            audio_bytes = audio_recorder(
-                recording_color="#e8b62c", neutral_color="#6aa36f", key="audio_recorder"
-            )
-
+            
+            # Handle recording
+            audio_bytes = handle_recording()
+            
             if audio_bytes:
-                st.success("✅ Audio recorded successfully!")
+                st.session_state.current_recording = audio_bytes
+                st.session_state.recording_step = 2
+                
+                # Review section
+                st.markdown("### Review Your Recording")
                 st.audio(audio_bytes, format="audio/wav")
+                
+                col_trans, col_retry = st.columns(2)
+                with col_trans:
+                    if st.button("🎯 Transcribe", key="transcribe_recording"):
+                        st.session_state.recording_step = 3
+                        
+                        # Create a temporary file for the audio
+                        with tempfile.NamedTemporaryFile(delete=False, suffix=".wav") as tmp_file:
+                            tmp_file.write(audio_bytes)
+                            tmp_file_path = tmp_file.name
 
-                if st.button("🎯 Transcribe", key="transcribe_recording"):
-                    # Create a temporary file for the audio
-                    with tempfile.NamedTemporaryFile(delete=False, suffix=".wav") as tmp_file:
-                        tmp_file.write(audio_bytes)
-                        tmp_file_path = tmp_file.name
+                        try:
+                            # Open the temp file for sending to API
+                            with open(tmp_file_path, "rb") as audio_file:
+                                result = transcribe_audio(audio_file, selected_model, selected_language)
 
-                    try:
-                        # Open the temp file for sending to API
-                        with open(tmp_file_path, "rb") as audio_file:
-                            result = transcribe_audio(audio_file, selected_model, selected_language)
+                            if result and result.get("success", False):
+                                # Display the transcription results in a styled container
+                                st.success("✓ Transcription complete")
 
-                        if result and result.get("success", False):
-                            # Display the transcription results in a styled container
-                            st.success("✓ Transcription complete")
+                                # Result container with styling
+                                with st.container():
+                                    st.markdown("### Transcription Result")
+                                    st.markdown(f"**{result['transcription']}**")
 
-                            # Result container with styling
-                            with st.container():
-                                st.markdown("### Transcription Result")
-                                st.markdown(f"**{result['transcription']}**")
+                                    # Display metrics in columns
+                                    col1, col2, col3 = st.columns(3)
+                                    with col1:
+                                        st.metric("Duration", f"{result.get('duration', 0):.2f}s")
+                                    with col2:
+                                        st.metric("Processing Time", f"{result['processing_time']:.2f}s")
+                                    with col3:
+                                        st.metric("Real-time Factor", f"{result.get('real_time_factor', 0):.2f}x")
 
-                                # Display metrics in columns
-                                col1, col2, col3 = st.columns(3)
+                                # Add download buttons
+                                col1, col2 = st.columns(2)
                                 with col1:
-                                    st.metric("Duration", f"{result.get('duration', 0):.2f}s")
+                                    st.download_button(
+                                        label="Download Transcription",
+                                        data=result["transcription"],
+                                        file_name=f"transcription_{time_module.strftime('%Y-%m-%d %H:%M:%S')}.txt",
+                                        mime="text/plain",
+                                    )
                                 with col2:
-                                    st.metric(
-                                        "Processing Time", f"{result['processing_time']:.2f}s"
-                                    )
-                                with col3:
-                                    st.metric(
-                                        "Real-time Factor",
-                                        f"{result.get('real_time_factor', 0):.2f}x",
+                                    st.download_button(
+                                        label="Download Audio",
+                                        data=audio_bytes,
+                                        file_name=f"recording_{time_module.strftime('%Y-%m-%d %H:%M:%S')}.wav",
+                                        mime="audio/wav",
                                     )
 
-                            # Add download buttons
-                            col1, col2 = st.columns(2)
-                            with col1:
-                                st.download_button(
-                                    label="Download Transcription",
-                                    data=result["transcription"],
-                                    file_name=f"transcription_{time_module.strftime('%Y-%m-%d %H:%M:%S')}.txt",
-                                    mime="text/plain",
-                                )
-                            with col2:
-                                # Convert audio bytes to downloadable format
-                                st.download_button(
-                                    label="Download Audio",
-                                    data=audio_bytes,
-                                    file_name=f"recording_{time_module.strftime('%Y-%m-%d %H:%M:%S')}.wav",
-                                    mime="audio/wav",
-                                )
-
-                            # Add to history with timestamp
-                            result["timestamp"] = time_module.strftime("%Y-%m-%d %H:%M:%S")
-                            result["source"] = "Recording"
-                            st.session_state.transcription_history.append(result)
-                    finally:
-                        # Clean up the temporary file
-                        if os.path.exists(tmp_file_path):
-                            os.unlink(tmp_file_path)
+                                # Add to history with timestamp
+                                result["timestamp"] = time_module.strftime("%Y-%m-%d %H:%M:%S")
+                                result["source"] = "Recording"
+                                st.session_state.transcription_history.append(result)
+                        finally:
+                            # Clean up the temporary file
+                            if os.path.exists(tmp_file_path):
+                                os.unlink(tmp_file_path)
+                
+                with col_retry:
+                    if st.button("🔄 Record Again", key="record_again"):
+                        st.session_state.current_recording = None
+                        st.session_state.recording_step = 1
+                        st.rerun()
 
         with col2:
             st.markdown("### Instructions")
             st.markdown(
                 """
-            1. Click the microphone button to start recording
-            2. Speak clearly in Vietnamese
-            3. Click again to stop recording
-            4. Review your recording
-            5. Click "Transcribe" to process
-            """
+                1. Click the microphone button to start recording
+                2. Speak clearly in Vietnamese
+                3. Click again to stop recording
+                4. Review your recording
+                5. Click "Transcribe" to process
+                
+                **Tips:**
+                - Keep recordings under 60 seconds
+                - Speak clearly and at a normal pace
+                - Minimize background noise
+                """
             )
 
     # Tab 3: Transcription History

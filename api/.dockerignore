@@ -1,0 +1,94 @@
+# Version control
+.git
+.gitignore
+.gitattributes
+
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+env/
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+*.egg-info/
+.installed.cfg
+*.egg
+
+# Virtual Environment
+venv/
+.env
+.venv
+ENV/
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+.history/
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Project specific
+*.log
+.env
+.env.*
+!.env.example
+tests/
+docs/
+README.md
+notebooks/
+examples/
+legacy/
+
+# Temporary files
+*.tmp
+*.temp
+*.bak
+*.swp
+*~
+
+# Docker
+.docker/
+docker-compose*.yml
+Dockerfile*
+!api/Dockerfile
+
+# Monitoring
+monitoring/
+grafana/
+prometheus/
+
+# Model checkpoints and cache
+checkpoints/
+.cache/
+*.pt
+*.pth
+*.onnx
+*.bin
+
+# Development
+.pre-commit-config.yaml
+.flake8
+.pylintrc
+.mypy_cache/
+.pytest_cache/
+htmlcov/
+.coverage
+.coverage.*
+coverage.xml
+*.cover 
