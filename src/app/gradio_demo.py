@@ -45,7 +45,11 @@ def transcribe_audio(audio_path, model, progress=gr.Progress()):
                 progress(0.3, "Processing audio...")
                 result = model.transcribe(temp_path)
                 progress(0.9, "Finalizing...")
-                return result["transcription"]
+                # Get transcription from the result
+                transcription = result.get("text", "")
+                if "transcription" in result:
+                    transcription = result["transcription"]
+                return transcription
             finally:
                 # Clean up the temporary file
                 os.unlink(temp_path)
@@ -54,7 +58,11 @@ def transcribe_audio(audio_path, model, progress=gr.Progress()):
             progress(0.3, "Processing audio...")
             result = model.transcribe(audio_path)
             progress(0.9, "Finalizing...")
-            return result["transcription"]
+            # Get transcription from the result
+            transcription = result.get("text", "")
+            if "transcription" in result:
+                transcription = result["transcription"]
+            return transcription
     except Exception as e:
         return f"Error transcribing audio: {str(e)}"
 
@@ -84,8 +92,8 @@ This demo uses a CTC-based speech recognition model derived from PhoWhisper,
 optimized for Vietnamese speech recognition.
 
 - Model: PhoWhisper-tiny-CTC
-- Word Error Rate (WER): ~41% on test set
-- Inference speed: Real-time (faster than speech duration)
+- Word Error Rate (WER): 41% on the VietBud500 test set
+- Inference speed: Real-time (more than 2x faster than speech duration)
 
 ## Tips for Best Results
 

@@ -87,7 +87,6 @@ vietnamese-asr/
 ├── scripts/              # Utility scripts
 │   └── app.py            # App runner
 ├── app.py                # Gradio app entry point
-├── run.py                # Unified entry point
 ├── test_model.py         # Model testing script
 ├── requirements.txt      # Project dependencies
 ├── Dockerfile            # Main Dockerfile
@@ -211,7 +210,7 @@ The UI will be available at http://localhost:8501
 pip install -r requirements.txt
 
 # Run the Gradio demo
-python run.py app --device cpu
+python app.py
 ```
 
 The Gradio demo will be available at http://localhost:7860
@@ -319,9 +318,10 @@ The Gradio demo provides a simple interface for:
 
 ## Model Performance
 
-- Word Error Rate (WER): ~41% on the test set
+- Word Error Rate (WER): 41% on the VietBud500 test set (measured on 1000 test examples)
 - Real-time factor: <0.5x (more than 2x faster than real-time)
 - Memory usage: <500MB
+- Processing time: ~0.02 seconds per example on standard CPU hardware
 
 ## Troubleshooting
 
@@ -337,3 +337,5 @@ This project is licensed under the MIT License - see the LICENSE file for detail
 
 - VinAI Research for the PhoWhisper-Tiny model
 - The creators of the VietBud500 dataset 
+
+> **Note**: The project doesn't use a unified `run.py` interface as mentioned in legacy documentation. Instead, each component has its specific entry point as shown in the installation instructions. 

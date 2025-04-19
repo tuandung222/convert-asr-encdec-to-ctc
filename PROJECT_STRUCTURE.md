@@ -74,15 +74,17 @@ These interfaces make the ASR model accessible to both technical and non-technic
 
 ### 4. Entry Points and Utilities
 
-- **`run.py`**: A unified entry point that provides:
-  - Command-line interface for all functionality
-  - Integration of different components
-  - Configuration handling
+- **`app.py`**: A Gradio interface for simple demonstration with:
+  - Audio recording and file upload
+  - Simple transcription display
+  - Example audio files
   
 - **`test_model.py`**: A test script for model validation with:
   - Model loading
   - Inference testing
   - Performance metrics collection
+
+- **`scripts/app.py`**: Utility script for running the application components
 
 ### 5. Training and Evaluation (`notebooks/`)
 
@@ -142,11 +144,6 @@ These interfaces make the ASR model accessible to both technical and non-technic
   - UI-specific dependencies
 
 ### Scripts and Entry Points
-
-- **`run.py`**: 
-  - Unified CLI entry point
-  - Integration of components
-  - Command parsing and execution
 
 - **`app.py`**: 
   - Gradio demo application
