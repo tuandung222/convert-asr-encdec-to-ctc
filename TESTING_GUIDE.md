@@ -227,13 +227,16 @@ The Streamlit app should now be accessible at http://localhost:8501.
 
 **Steps:**
 1. Navigate to http://localhost:8501 in your browser
-2. Click "Record Audio"
-3. Speak a Vietnamese phrase
-4. Click "Stop Recording"
-5. Verify that the recording is captured
-6. Check that transcription appears after processing
+2. Click on the "Record Audio" tab
+3. Click "🎙️ Start Recording" to begin recording
+4. Speak a Vietnamese phrase
+5. Click "⏹️ Stop Recording" to finish
+6. Review your recording (playback is available)
+7. Click "🎯 Transcribe" to process the audio
+8. Verify that transcription appears with details like confidence, model used, etc.
+9. Test other options like "Record Again" or "Download Audio"
 
-**Expected Result:** The system should transcribe the recorded audio and display the text.
+**Expected Result:** The system should guide you through the recording process with clear state indicators, then transcribe the recorded audio and display the text along with metadata.
 
 ### 5.3 Test Feature: API Direct Access
 

@@ -295,9 +295,10 @@ curl -X POST "http://localhost:8000/transcribe" \
 
 The Streamlit UI provides a more user-friendly interface for:
 - Uploading audio files for transcription
-- Recording audio directly in the browser
+- Recording audio directly in the browser with step-by-step guidance
 - Viewing transcription history
 - Visualizing confidence scores
+- Downloading audio recordings and transcription results
 
 ### Gradio Demo
 

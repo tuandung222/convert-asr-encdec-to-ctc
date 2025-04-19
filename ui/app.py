@@ -69,11 +69,24 @@ def check_api_status():
 
 def transcribe_audio(audio_file, model, language):
     try:
+        # Log file information for debugging
+        st.write(f"File type: {type(audio_file)}")
+        if hasattr(audio_file, 'name'):
+            st.write(f"File name: {audio_file.name}")
+        if hasattr(audio_file, 'type'):
+            st.write(f"File content type: {audio_file.type}")
+        
         files = {"file": audio_file}
         data = {"model": model, "language": language}
         
+        st.write(f"Sending request to {API_URL}/transcribe with model={model}, language={language}")
+        
         with st.spinner("Transcribing audio..."):
             response = requests.post(f"{API_URL}/transcribe", files=files, data=data)
+        
+        st.write(f"Response status: {response.status_code}")
+        if response.status_code != 200:
+            st.write(f"Response content: {response.text}")
         
         if response.status_code == 200:
             result = response.json()
@@ -81,12 +94,17 @@ def transcribe_audio(audio_file, model, language):
             result["success"] = True
             if "confidence" not in result:
                 result["confidence"] = 0.8  # Default confidence if not provided by API
+            # Map 'text' field to 'transcription' for UI consistency
+            if "text" in result and "transcription" not in result:
+                result["transcription"] = result["text"]
             return result
         else:
             st.error(f"Error: {response.status_code} - {response.text}")
             return None
     except Exception as e:
         st.error(f"Failed to transcribe: {e}")
+        import traceback
+        st.error(traceback.format_exc())
         return None
 
 def create_confidence_chart(confidence):
@@ -134,7 +152,25 @@ def main():
         
         # Model selection
         models = get_available_models()
-        selected_model = st.selectbox("Select Model", models)
+        # Create a format function to display model names but store model IDs
+        def format_model(model):
+            if isinstance(model, dict) and 'id' in model:
+                return f"{model['name']} - {model['description']}"
+            else:
+                return model
+        
+        # Use a selectbox with the format function
+        selected_model_display = st.selectbox(
+            "Select Model", 
+            models,
+            format_func=format_model
+        )
+        
+        # Extract just the model ID for API calls
+        if isinstance(selected_model_display, dict) and 'id' in selected_model_display:
+            selected_model = selected_model_display['id']
+        else:
+            selected_model = selected_model_display
         
         # Language selection
         languages = get_supported_languages()
@@ -220,40 +256,77 @@ def main():
     # Tab 2: Record Audio
     with tab2:
         st.header("Record Audio")
-        st.warning("Note: Browser microphone access is required for recording.")
         
-        # Initialize variables outside the try block
-        audio_bytes = None
-        audio_recorded = False
+        # Initialize recording state in session_state
+        if "recording_state" not in st.session_state:
+            st.session_state.recording_state = "idle"  # States: idle, recording, recorded
         
-        # Install and use streamlit_webrtc for audio recording
-        try:
-            from streamlit_webrtc import webrtc_streamer
-            import av
+        if "audio_bytes" not in st.session_state:
+            st.session_state.audio_bytes = None
             
-            # Setup a container for audio recording
-            record_container = st.container()
-            audio_buffer = []
+        # Show different UI based on recording state
+        if st.session_state.recording_state == "idle":
+            st.info("Click 'Start Recording' to begin. Ensure your microphone is enabled.")
             
-            with record_container:
+            # UI for starting recording
+            start_col1, start_col2 = st.columns([1, 3])
+            with start_col1:
+                if st.button("🎙️ Start Recording"):
+                    st.session_state.recording_state = "recording"
+                    st.session_state.audio_buffer = []
+                    st.rerun()
+            
+            with start_col2:
+                st.markdown("**Microphone access is required. Please allow it when prompted by your browser.**")
+                
+            # Show a sample of what to expect
+            st.markdown("---")
+            st.markdown("#### Example Result")
+            st.markdown("After recording, you'll see your audio waveform and can transcribe it.")
+            st.image("https://miro.medium.com/max/1400/1*wMSKA7jf7gFiSb-2nVNRlg.png", width=400)
+            
+        elif st.session_state.recording_state == "recording":
+            # UI during recording
+            st.warning("🔴 Recording in progress...")
+            
+            # Display a timer
+            placeholder = st.empty()
+            
+            # Try to setup and use streamlit-webrtc for recording
+            try:
+                from streamlit_webrtc import webrtc_streamer
+                import av
+                import time
+                
+                # Initialize or get duration counter
+                if "recording_start_time" not in st.session_state:
+                    st.session_state.recording_start_time = time.time()
+                
+                # Show recording duration
+                elapsed = time.time() - st.session_state.recording_start_time
+                placeholder.markdown(f"### Recording for: {int(elapsed)} seconds")
+                
+                # Setup a container for audio recording
+                audio_buffer = st.session_state.audio_buffer
+                
                 def audio_callback(frame):
                     audio_buffer.append(frame.to_ndarray())
                     return frame
                 
+                # Create webrtc streamer
                 webrtc_ctx = webrtc_streamer(
                     key="audio-recorder",
                     audio_receiver_size=1024,
                     media_stream_constraints={"video": False, "audio": True},
                     video_processor_factory=None,
                     audio_processor_factory=lambda: audio_callback,
+                    rtc_configuration={"iceServers": [{"urls": ["stun:stun.l.google.com:19302"]}]},
+                    # This helps ensure compatibility across browsers
                 )
                 
-                record_button = st.button("Save Recording")
-                
-                if record_button and len(audio_buffer) > 0:
-                    # Convert the audio buffer to a WAV file
-                    audio_recorded = True
-                    
+                # Check if webrtc has been stopped - consider recording finished
+                if webrtc_ctx.state.playing == False and len(audio_buffer) > 0:
+                    # Process the recorded audio
                     try:
                         import numpy as np
                         from pydub import AudioSegment
@@ -276,61 +349,180 @@ def main():
                         # Export to WAV bytes
                         buffer = io.BytesIO()
                         audio_segment.export(buffer, format="wav")
-                        audio_bytes = buffer.getvalue()
+                        st.session_state.audio_bytes = buffer.getvalue()
                         
-                        st.audio(audio_bytes, format="audio/wav")
-                        st.success("Audio recorded successfully!")
+                        # Change state to recorded
+                        st.session_state.recording_state = "recorded"
+                        st.rerun()
                     except Exception as e:
                         st.error(f"Failed to process audio: {e}")
-        except ImportError:
-            st.error("Please install required packages: `pip install streamlit-webrtc av pydub`")
-            st.info("Alternatively, you can use the file upload tab to upload audio files.")
-        
-        if audio_bytes and audio_recorded:
-            if st.button("Transcribe Recorded Audio"):
-                # Create a temporary file for the audio
-                with tempfile.NamedTemporaryFile(delete=False, suffix=".wav") as tmp_file:
-                    tmp_file.write(audio_bytes)
-                    tmp_file_path = tmp_file.name
+                        st.session_state.recording_state = "idle"
+                        st.rerun()
                 
-                try:
-                    # Open the temp file for sending to API
-                    with open(tmp_file_path, "rb") as audio_file:
-                        result = transcribe_audio(audio_file, selected_model, selected_language)
-                    
-                    if result and result.get("success", False):
-                        # Display the transcription results
-                        st.subheader("Transcription Result")
-                        st.success("Transcription completed successfully!")
+                # Stop recording button
+                stop_col1, stop_col2 = st.columns([1, 3])
+                with stop_col1:
+                    if st.button("⏹️ Stop Recording"):
+                        st.warning("Stopping recording... Please wait.")
+                        st.session_state.recording_state = "processing"
+                        # The actual processing will happen on the next rerun when webrtc_ctx.state.playing is False
+                        st.rerun()
                         
-                        col1, col2 = st.columns([2, 1])
+                with stop_col2:
+                    st.markdown("**Click 'Stop Recording' when you're finished speaking.**")
+                
+            except ImportError:
+                st.error("Please install required packages: `pip install streamlit-webrtc av pydub`")
+                st.info("Alternatively, you can use the file upload tab to upload audio files.")
+                # Reset state on error
+                st.session_state.recording_state = "idle"
+                
+            except Exception as e:
+                st.error(f"Error during recording: {e}")
+                import traceback
+                st.error(traceback.format_exc())
+                # Reset state on error
+                st.session_state.recording_state = "idle"
+                
+        elif st.session_state.recording_state == "recorded":
+            # UI after recording is complete
+            st.success("✅ Recording completed!")
+            
+            # Display the recorded audio
+            if st.session_state.audio_bytes:
+                st.audio(st.session_state.audio_bytes, format="audio/wav")
+                
+                # Buttons for actions
+                col1, col2, col3 = st.columns(3)
+                
+                with col1:
+                    if st.button("🔄 Record Again"):
+                        st.session_state.recording_state = "idle"
+                        st.session_state.audio_bytes = None
+                        st.rerun()
+                
+                with col2:
+                    if st.button("🎯 Transcribe"):
+                        # Create a temporary file for the audio
+                        with tempfile.NamedTemporaryFile(delete=False, suffix=".wav") as tmp_file:
+                            tmp_file.write(st.session_state.audio_bytes)
+                            tmp_file_path = tmp_file.name
                         
-                        with col1:
-                            st.markdown(f"**Text:** {result['transcription']}")
-                            st.markdown(f"**Model:** {result['model']}")
-                            st.markdown(f"**Language:** {result['language']}")
-                            st.markdown(f"**Processing Time:** {result['processing_time']:.2f} seconds")
+                        try:
+                            # Open the temp file for sending to API
+                            with open(tmp_file_path, "rb") as audio_file:
+                                # Set a filename for the file to ensure it's properly processed by FastAPI
+                                class NamedBytesIO:
+                                    def __init__(self, file, name):
+                                        self.file = file
+                                        self.name = name
+                                    
+                                    def read(self, *args, **kwargs):
+                                        return self.file.read(*args, **kwargs)
+                                    
+                                    def seek(self, *args, **kwargs):
+                                        return self.file.seek(*args, **kwargs)
+                                
+                                named_file = NamedBytesIO(audio_file, "recorded_audio.wav")
+                                
+                                # Show transcription progress
+                                with st.spinner("Transcribing... Please wait."):
+                                    result = transcribe_audio(named_file, selected_model, selected_language)
+                                
+                                if result and result.get("success", False):
+                                    # Store result in session state
+                                    st.session_state.transcription_result = result
+                                    
+                                    # Add to history with timestamp
+                                    result["timestamp"] = time.strftime("%Y-%m-%d %H:%M:%S")
+                                    result["source"] = "Recording"
+                                    st.session_state.transcription_history.append(result)
+                                    
+                                    # Switch to result display
+                                    st.session_state.recording_state = "result"
+                                    st.rerun()
+                                else:
+                                    st.error("Transcription failed. Please try again.")
                             
-                            # Add download button
-                            st.download_button(
-                                label="Download Transcription",
-                                data=result['transcription'],
-                                file_name=f"transcription_{int(time.time())}.txt",
-                                mime="text/plain"
-                            )
-                        
-                        with col2:
-                            # Display confidence gauge
-                            st.plotly_chart(create_confidence_chart(result["confidence"]))
-                        
-                        # Add to history with timestamp
-                        result["timestamp"] = time.strftime("%Y-%m-%d %H:%M:%S")
-                        result["source"] = "Recording"
-                        st.session_state.transcription_history.append(result)
-                finally:
-                    # Clean up the temporary file
-                    if os.path.exists(tmp_file_path):
-                        os.unlink(tmp_file_path)
+                        except Exception as e:
+                            st.error(f"Error during transcription: {e}")
+                            import traceback
+                            st.error(traceback.format_exc())
+                        finally:
+                            # Clean up the temporary file
+                            if os.path.exists(tmp_file_path):
+                                os.unlink(tmp_file_path)
+                
+                with col3:
+                    # Download button for the recorded audio
+                    st.download_button(
+                        label="💾 Download Audio",
+                        data=st.session_state.audio_bytes,
+                        file_name=f"recording_{int(time.time())}.wav",
+                        mime="audio/wav"
+                    )
+            else:
+                st.error("No audio data found. Please record again.")
+                st.session_state.recording_state = "idle"
+                st.rerun()
+                
+        elif st.session_state.recording_state == "result":
+            # UI for displaying transcription result
+            if "transcription_result" in st.session_state:
+                result = st.session_state.transcription_result
+                
+                # Display the recorded audio
+                if st.session_state.audio_bytes:
+                    st.audio(st.session_state.audio_bytes, format="audio/wav")
+                
+                # Display the transcription results
+                st.subheader("Transcription Result")
+                st.success("Transcription completed successfully!")
+                
+                col1, col2 = st.columns([2, 1])
+                
+                with col1:
+                    st.markdown(f"**Text:** {result['transcription']}")
+                    st.markdown(f"**Model:** {result['model']}")
+                    st.markdown(f"**Language:** {result['language']}")
+                    st.markdown(f"**Processing Time:** {result['processing_time']:.2f} seconds")
+                    
+                    # Add download button for text
+                    st.download_button(
+                        label="Download Transcription",
+                        data=result['transcription'],
+                        file_name=f"transcription_{int(time.time())}.txt",
+                        mime="text/plain"
+                    )
+                
+                with col2:
+                    # Display confidence gauge
+                    st.plotly_chart(create_confidence_chart(result["confidence"]))
+                
+                # Action buttons
+                new_col1, new_col2 = st.columns(2)
+                
+                with new_col1:
+                    if st.button("🔄 Record New Audio"):
+                        st.session_state.recording_state = "idle"
+                        st.session_state.audio_bytes = None
+                        if "transcription_result" in st.session_state:
+                            del st.session_state.transcription_result
+                        st.rerun()
+                
+                with new_col2:
+                    # Download button for the recorded audio
+                    st.download_button(
+                        label="💾 Download Audio",
+                        data=st.session_state.audio_bytes,
+                        file_name=f"recording_{int(time.time())}.wav",
+                        mime="audio/wav",
+                        key="download_audio_result"
+                    )
+            else:
+                st.error("No transcription result found. Please try again.")
+                st.session_state.recording_state = "idle"
+                st.rerun()
     
     # Tab 3: Transcription History
     with tab3:
