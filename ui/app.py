@@ -69,18 +69,28 @@ def check_api_status():
 
 def transcribe_audio(audio_file, model, language):
     try:
+        # Display debug info
+        st.write(f"Sending model={model}, language={language} to API")
+        
         files = {"file": audio_file}
         data = {"model": model, "language": language}
         
         with st.spinner("Transcribing audio..."):
             response = requests.post(f"{API_URL}/transcribe", files=files, data=data)
         
+        st.write(f"Response status: {response.status_code}")
+        if response.status_code != 200:
+            st.write(f"Response content: {response.text}")
+            
         if response.status_code == 200:
             result = response.json()
             # Add a success flag and default confidence for UI
             result["success"] = True
             if "confidence" not in result:
                 result["confidence"] = 0.8  # Default confidence if not provided by API
+            # Map 'text' to 'transcription' for UI consistency if needed
+            if "text" in result and "transcription" not in result:
+                result["transcription"] = result["text"]
             return result
         else:
             st.error(f"Error: {response.status_code} - {response.text}")
@@ -134,7 +144,25 @@ def main():
         
         # Model selection
         models = get_available_models()
-        selected_model = st.selectbox("Select Model", models)
+        
+        # Format model objects for display
+        def format_model_option(model):
+            if isinstance(model, dict) and "id" in model:
+                return f"{model['name']} - {model.get('description', '')}"
+            return model
+            
+        # Create selectbox with formatted display
+        model_display = st.selectbox(
+            "Select Model", 
+            models,
+            format_func=format_model_option
+        )
+        
+        # Extract just the ID for API request
+        if isinstance(model_display, dict) and "id" in model_display:
+            selected_model = model_display["id"]
+        else:
+            selected_model = model_display
         
         # Language selection
         languages = get_supported_languages()
