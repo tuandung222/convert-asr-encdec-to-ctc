@@ -1,0 +1,38 @@
+# API Dependencies
+fastapi>=0.109.2
+uvicorn>=0.27.1
+pydantic>=2.6.1
+python-multipart>=0.0.7
+starlette>=0.36.3
+
+# ML Dependencies
+torch>=2.6.0
+torchaudio>=2.6.0
+transformers>=4.38.2
+huggingface_hub>=0.23.0
+soundfile>=0.12.1
+librosa>=0.10.1
+numpy>=1.26.4
+
+# Monitoring and observability
+prometheus-client
+opentelemetry-api
+opentelemetry-sdk
+psutil>=5.9.5  # For system metrics collection
+
+# ONNX Dependencies
+onnx>=1.15.0
+onnxruntime>=1.16.0
+onnxruntime-extensions>=0.7.0  # For quantization and optimization
+
+# Utilities
+tqdm>=4.66.2
+requests>=2.31.0
+
+# Development dependencies
+pre-commit>=3.6.0  # Git hook management
+black>=24.2.0      # Code formatting
+isort>=5.13.2      # Import sorting
+flake8>=7.0.0      # Linting
+mypy>=1.8.0        # Type checking
+bandit>=1.7.7      # Security checks 

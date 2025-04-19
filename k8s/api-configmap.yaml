@@ -1,0 +1,15 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: asr-api-config
+  labels:
+    app: asr-api
+data:
+  MODEL_TYPE: "phowhisper-ctc"
+  MODEL_NAME: "nguyenvulebinh/vietnamese-wav2vec2-large-xlsr-53"
+  ENABLE_GPU: "true"
+  LOG_LEVEL: "INFO"
+  MAX_AUDIO_LENGTH_SECS: "60"
+  METRICS_COLLECTION_ENABLED: "true"
+  BATCH_SIZE: "8"
+  TRANSCRIBE_TIMEOUT: "120" 

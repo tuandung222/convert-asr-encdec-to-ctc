@@ -1,5 +1,4 @@
 #!/usr/bin/env python
-# coding: utf-8
 
 # - This notebook is used for training the model
 # - Please refer to my notebook named "evaluate_after_training" for:
@@ -19,31 +18,28 @@
 # In[7]:
 
 
-import pytorch_lightning as pl
-from torch.utils.data import DataLoader
-from datasets import load_dataset
-from transformers import AutoProcessor
-from torch.nn.utils.rnn import pad_sequence
-from tqdm import tqdm
+import bitsandbytes as bnb
 import pytorch_lightning as pl
 import torch
+from bitsandbytes.optim import Adam8bit
+from datasets import load_dataset
+from easydict import EasyDict as edict
+from evaluate import load as load_metric
+from pytorch_lightning.callbacks import LearningRateMonitor, ModelCheckpoint
+from torch import nn
+from torch.nn.utils.rnn import pad_sequence
+from torch.optim import AdamW
+from torch.utils.data import DataLoader
+from tqdm import tqdm
 from transformers import (
+    AutoConfig,
     AutoModelForSpeechSeq2Seq,
     AutoProcessor,
-    AutoConfig,
-    get_cosine_schedule_with_warmup,
     WhisperForConditionalGeneration,
+    get_cosine_schedule_with_warmup,
 )
-import torch
-from torch.optim import AdamW
-import bitsandbytes as bnb
-from bitsandbytes.optim import Adam8bit
 from transformers.models.whisper.modeling_whisper import WhisperEncoder
-from easydict import EasyDict as edict
-from torch import nn
-from evaluate import load as load_metric
-import torch
-from pytorch_lightning.callbacks import LearningRateMonitor, ModelCheckpoint
+
 
 class VietBud500DataModule(pl.LightningDataModule):
     def __init__(
@@ -56,16 +52,16 @@ class VietBud500DataModule(pl.LightningDataModule):
         super().__init__()
         self.batch_size = batch_size
         self.processor = AutoProcessor.from_pretrained(processor_name)
-        
+
         print("Download just 3 shards / 105 shards of the origin training data")
         self.train_url = [
             "https://huggingface.co/datasets/linhtran92/viet_bud500/resolve/main/data/train-00000-of-00105-be5f872f8be772f5.parquet",
             "https://huggingface.co/datasets/linhtran92/viet_bud500/resolve/main/data/train-00097-of-00105-4160c0470220c086.parquet",
-            "https://huggingface.co/datasets/linhtran92/viet_bud500/resolve/main/data/train-00086-of-00105-131a0bbf617d895c.parquet"
+            "https://huggingface.co/datasets/linhtran92/viet_bud500/resolve/main/data/train-00086-of-00105-131a0bbf617d895c.parquet",
         ]
         self.test_url = "https://huggingface.co/datasets/linhtran92/viet_bud500/resolve/main/data/test-00000-of-00002-531c1d81edb57297.parquet"
         self.data_files = {"train": self.train_url, "test": self.test_url}
-        
+
         self.num_workers = num_workers
         self.pin_memory = pin_memory
 
@@ -83,8 +79,10 @@ class VietBud500DataModule(pl.LightningDataModule):
         train_val_split = train_dataset.train_test_split(test_size=0.05, seed=42)
         self.train_dataset = train_val_split["train"]
         self.val_dataset = train_val_split["test"]
-        
-        print("Just select 1000 examples from a shard of the origin test data serving as the test split!")
+
+        print(
+            "Just select 1000 examples from a shard of the origin test data serving as the test split!"
+        )
         self.test_dataset = test_dataset.select(range(1000))
 
         print("Number of training examples:", len(self.train_dataset))
@@ -126,7 +124,7 @@ class VietBud500DataModule(pl.LightningDataModule):
             collate_fn=self.collate_fn,
             num_workers=self.num_workers,
             pin_memory=self.pin_memory,
-            drop_last=True
+            drop_last=True,
         )
 
     def val_dataloader(self):
@@ -135,7 +133,7 @@ class VietBud500DataModule(pl.LightningDataModule):
             batch_size=self.batch_size,
             collate_fn=self.collate_fn,
             num_workers=self.num_workers,
-            pin_memory=self.pin_memory
+            pin_memory=self.pin_memory,
         )
 
     def test_dataloader(self):
@@ -185,9 +183,7 @@ class PhoWhisperLightningModule(pl.LightningModule):
 
     def forward(self, input_features, labels=None):
         encoder_outputs = self.encoder(input_features)  # (batch, time, hidden)
-        logits = self.ctc_head(
-            encoder_outputs.last_hidden_state
-        )  # (batch, time, vocab)
+        logits = self.ctc_head(encoder_outputs.last_hidden_state)  # (batch, time, vocab)
         logits = logits.transpose(0, 1)  # (time, batch, vocab)
 
         log_probs = torch.nn.functional.log_softmax(logits, dim=2)
@@ -240,9 +236,7 @@ class PhoWhisperLightningModule(pl.LightningModule):
 
         outputs = self(input_features=input_features, labels=labels)
         loss = outputs.loss
-        self.log(
-            "train_loss", loss, on_step=True, on_epoch=True, prog_bar=True, logger=True
-        )
+        self.log("train_loss", loss, on_step=True, on_epoch=True, prog_bar=True, logger=True)
         return loss
 
     def validation_step(self, batch, batch_idx):
@@ -337,9 +331,7 @@ def wer_evaluate(pl_module, test_dataloader, device="cuda"):
                 labels = batch["labels"].to(pl_module.device)
 
                 # Generate outputs
-                outputs = pl_module.model.generate(
-                    input_features=input_features, do_sample=True
-                )
+                outputs = pl_module.model.generate(input_features=input_features, do_sample=True)
                 # Decode generated outputs to text
                 predicted_texts = datamodule.processor.batch_decode(
                     outputs, skip_special_tokens=True
@@ -373,9 +365,7 @@ def wer_ctc_evaluate(pl_module, test_dataloader, device="cuda"):
                 logits = pl_module(input_features=input_features, labels=None).logits
 
                 predicted_texts = pl_module.ctc_decode(logits)
-                label_texts = pl_module.processor.batch_decode(
-                    labels, skip_special_tokens=True
-                )
+                label_texts = pl_module.processor.batch_decode(labels, skip_special_tokens=True)
 
                 predictions.extend(predicted_texts)
                 references.extend(label_texts)
@@ -466,12 +456,9 @@ lightning_module = PhoWhisperLightningModule(
 
 
 # Initialize the custom callback
-lr_monitor = LearningRateMonitor(logging_interval='step')
+lr_monitor = LearningRateMonitor(logging_interval="step")
 checkpoint_callback = ModelCheckpoint(
-    monitor='val_wer',
-    mode='min',
-    save_top_k=1,
-    filename='best-{val_wer:.4f}'
+    monitor="val_wer", mode="min", save_top_k=1, filename="best-{val_wer:.4f}"
 )
 eval_callback = EvalCallback(processor=datamodule.processor)
 
@@ -491,11 +478,7 @@ trainer = pl.Trainer(
 trainer.fit(lightning_module, datamodule=datamodule)
 
 # Test the model on the test set
-trainer.test(lightning_module, datamodule=datamodule, ckpt_path='best')
+trainer.test(lightning_module, datamodule=datamodule, ckpt_path="best")
 
 
 # In[ ]:
-
-
-
-

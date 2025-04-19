@@ -1,12 +1,16 @@
-streamlit>=1.26.0
-pandas>=2.0.0
-plotly>=5.15.0
-requests>=2.31.0
-numpy>=1.24.0
-pillow>=9.5.0
-pydeck>=0.8.0
-watchdog>=3.0.0
+# Streamlit UI Dependencies
+streamlit>=1.32.2
+pandas>=2.2.1
+plotly>=5.18.0
+audio-recorder-streamlit>=0.0.9
+
+# Audio processing
+librosa>=0.10.1
+soundfile>=0.12.1
+numpy>=1.26.4
 pydub>=0.25.1
-audio-recorder-streamlit>=0.0.8
-av>=10.0.0
-python-dotenv>=1.0.0 
+
+# Utilities
+requests>=2.31.0
+python-dotenv>=1.0.0
+pillow>=10.2.0

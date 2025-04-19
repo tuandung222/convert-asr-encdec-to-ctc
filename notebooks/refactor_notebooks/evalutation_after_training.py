@@ -1,5 +1,4 @@
 #!/usr/bin/env python
-# coding: utf-8
 
 # In[6]:
 
@@ -13,35 +12,33 @@
 # In[10]:
 
 
-import pytorch_lightning as pl
 import random
-from IPython.display import Audio
-import soundfile as sf
+
+import bitsandbytes as bnb
 import librosa
-from torch.utils.data import DataLoader
-from datasets import load_dataset
-from transformers import AutoProcessor
-from torch.nn.utils.rnn import pad_sequence
-from tqdm import tqdm
 import pytorch_lightning as pl
+import soundfile as sf
 import torch
+from bitsandbytes.optim import Adam8bit
+from datasets import load_dataset
+from easydict import EasyDict as edict
+from evaluate import load as load_metric
+from IPython.display import Audio
+from pytorch_lightning.callbacks import LearningRateMonitor, ModelCheckpoint
+from torch import nn
+from torch.nn.utils.rnn import pad_sequence
+from torch.optim import AdamW
+from torch.utils.data import DataLoader
+from tqdm import tqdm
 from transformers import (
+    AutoConfig,
     AutoModelForSpeechSeq2Seq,
     AutoProcessor,
-    AutoConfig,
-    get_cosine_schedule_with_warmup,
     WhisperForConditionalGeneration,
+    get_cosine_schedule_with_warmup,
 )
-import torch
-from torch.optim import AdamW
-import bitsandbytes as bnb
-from bitsandbytes.optim import Adam8bit
 from transformers.models.whisper.modeling_whisper import WhisperEncoder
-from easydict import EasyDict as edict
-from torch import nn
-from evaluate import load as load_metric
-import torch
-from pytorch_lightning.callbacks import LearningRateMonitor, ModelCheckpoint
+
 
 class VietBud500DataModule(pl.LightningDataModule):
     def __init__(
@@ -54,16 +51,16 @@ class VietBud500DataModule(pl.LightningDataModule):
         super().__init__()
         self.batch_size = batch_size
         self.processor = AutoProcessor.from_pretrained(processor_name)
-        
+
         print("Download just 3 shards / 105 shards of the origin training data")
         self.train_url = [
             "https://huggingface.co/datasets/linhtran92/viet_bud500/resolve/main/data/train-00000-of-00105-be5f872f8be772f5.parquet",
             "https://huggingface.co/datasets/linhtran92/viet_bud500/resolve/main/data/train-00097-of-00105-4160c0470220c086.parquet",
-            "https://huggingface.co/datasets/linhtran92/viet_bud500/resolve/main/data/train-00086-of-00105-131a0bbf617d895c.parquet"
+            "https://huggingface.co/datasets/linhtran92/viet_bud500/resolve/main/data/train-00086-of-00105-131a0bbf617d895c.parquet",
         ]
         self.test_url = "https://huggingface.co/datasets/linhtran92/viet_bud500/resolve/main/data/test-00000-of-00002-531c1d81edb57297.parquet"
         self.data_files = {"train": self.train_url, "test": self.test_url}
-        
+
         self.num_workers = num_workers
         self.pin_memory = pin_memory
 
@@ -81,8 +78,10 @@ class VietBud500DataModule(pl.LightningDataModule):
         train_val_split = train_dataset.train_test_split(test_size=0.05, seed=42)
         self.train_dataset = train_val_split["train"]
         self.val_dataset = train_val_split["test"]
-        
-        print("Just select 1000 examples from a shard of the origin test data serving as the test split!")
+
+        print(
+            "Just select 1000 examples from a shard of the origin test data serving as the test split!"
+        )
         self.test_dataset = test_dataset.select(range(1000))
 
         print("Number of training examples:", len(self.train_dataset))
@@ -122,7 +121,7 @@ class VietBud500DataModule(pl.LightningDataModule):
             collate_fn=self.collate_fn,
             num_workers=self.num_workers,
             pin_memory=self.pin_memory,
-            drop_last=True
+            drop_last=True,
         )
 
     def val_dataloader(self):
@@ -131,7 +130,7 @@ class VietBud500DataModule(pl.LightningDataModule):
             batch_size=self.batch_size,
             collate_fn=self.collate_fn,
             num_workers=self.num_workers,
-            pin_memory=self.pin_memory
+            pin_memory=self.pin_memory,
         )
 
     def test_dataloader(self):
@@ -181,9 +180,7 @@ class PhoWhisperLightningModule(pl.LightningModule):
 
     def forward(self, input_features, labels=None):
         encoder_outputs = self.encoder(input_features)  # (batch, time, hidden)
-        logits = self.ctc_head(
-            encoder_outputs.last_hidden_state
-        )  # (batch, time, vocab)
+        logits = self.ctc_head(encoder_outputs.last_hidden_state)  # (batch, time, vocab)
         logits = logits.transpose(0, 1)  # (time, batch, vocab)
 
         log_probs = torch.nn.functional.log_softmax(logits, dim=2)
@@ -236,9 +233,7 @@ class PhoWhisperLightningModule(pl.LightningModule):
 
         outputs = self(input_features=input_features, labels=labels)
         loss = outputs.loss
-        self.log(
-            "train_loss", loss, on_step=True, on_epoch=True, prog_bar=True, logger=True
-        )
+        self.log("train_loss", loss, on_step=True, on_epoch=True, prog_bar=True, logger=True)
         return loss
 
     def validation_step(self, batch, batch_idx):
@@ -333,9 +328,7 @@ def wer_evaluate(pl_module, test_dataloader, device="cuda"):
                 labels = batch["labels"].to(pl_module.device)
 
                 # Generate outputs
-                outputs = pl_module.model.generate(
-                    input_features=input_features, do_sample=True
-                )
+                outputs = pl_module.model.generate(input_features=input_features, do_sample=True)
                 # Decode generated outputs to text
                 predicted_texts = datamodule.processor.batch_decode(
                     outputs, skip_special_tokens=True
@@ -369,9 +362,7 @@ def wer_ctc_evaluate(pl_module, test_dataloader, device="cuda"):
                 logits = pl_module(input_features=input_features, labels=None).logits
 
                 predicted_texts = pl_module.ctc_decode(logits)
-                label_texts = pl_module.processor.batch_decode(
-                    labels, skip_special_tokens=True
-                )
+                label_texts = pl_module.processor.batch_decode(labels, skip_special_tokens=True)
 
                 predictions.extend(predicted_texts)
                 references.extend(label_texts)
@@ -507,9 +498,7 @@ hf_hub_download(
 # In[27]:
 
 
-lightning_module = PhoWhisperLightningModule.load_from_checkpoint(
-    "best-val_wer=0.3986.ckpt"
-)
+lightning_module = PhoWhisperLightningModule.load_from_checkpoint("best-val_wer=0.3986.ckpt")
 
 
 # In[48]:
@@ -526,7 +515,7 @@ def predict(model, processor, audio_path, device="cuda"):
     input_features = input_features.to(model.device)
     logits = model(input_features=input_features).logits
     predicted_text = model.ctc_decode(logits, processor)[0]
-    predicted_text = predicted_text[2:] # remove the first token, due to my tokenization mistake
+    predicted_text = predicted_text[2:]  # remove the first token, due to my tokenization mistake
     return predicted_text
 
 
@@ -539,6 +528,7 @@ def get_random_test_audio(datamodule):
     sf.write(audio_path, audio_obj["array"], 16000)
     display(Audio(audio_path))
     return audio_obj, transcription
+
 
 def get_random_gd_pred_pairs(datamodule, model, num_examples=10):
     random_indices = random.sample(range(len(datamodule.test_dataset)), num_examples)
@@ -553,7 +543,8 @@ def get_random_gd_pred_pairs(datamodule, model, num_examples=10):
         print("Ground True Transcription:", transcription)
         print("Predicted Transcription:", predicted_text)
         print("\n")
-        
+
+
 get_random_gd_pred_pairs(datamodule, lightning_module, num_examples=25)
 
 
@@ -564,14 +555,12 @@ get_random_gd_pred_pairs(datamodule, lightning_module, num_examples=25)
 # In[51]:
 
 
-lightning_module = PhoWhisperLightningModule.load_from_checkpoint(
-    "./best-val_wer=0.3986.ckpt"
-)
+lightning_module = PhoWhisperLightningModule.load_from_checkpoint("./best-val_wer=0.3986.ckpt")
 
 print("Evaluate after training", wer_ctc_evaluate(lightning_module, datamodule.test_dataloader()))
 
 
 # - Speed: 1000 examples in 20 seconds <=> each example averagely takes 0.02 seconds
-# 
+#
 
-# 
+#

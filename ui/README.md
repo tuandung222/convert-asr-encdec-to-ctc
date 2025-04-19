@@ -62,4 +62,4 @@ The UI connects to the Vietnamese ASR API which should be running and accessible
 - WAV (.wav)
 - M4A (.m4a)
 - OGG (.ogg)
-- FLAC (.flac) 
+- FLAC (.flac)

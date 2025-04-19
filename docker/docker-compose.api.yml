@@ -1,0 +1,35 @@
+version: '3.8'
+
+services:
+  api:
+    build:
+      context: ..
+      dockerfile: api/Dockerfile
+    ports:
+      - "8000:8000"
+    volumes:
+      - ../checkpoints:/app/checkpoints
+    environment:
+      - PORT=8000
+      - INFERENCE_DEVICE=cpu
+      - JAEGER_HOST=jaeger
+      - JAEGER_PORT=6831
+      - ENVIRONMENT=production
+      - PROMETHEUS_MULTIPROC_DIR=/tmp/prometheus-metrics
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+    restart: unless-stopped
+    networks:
+      - asr-network
+    deploy:
+      resources:
+        limits:
+          cpus: '1'
+          memory: 1G
+        reservations:
+          cpus: '0.5'
+          memory: 512M 

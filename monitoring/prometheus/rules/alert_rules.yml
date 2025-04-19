@@ -1,56 +1,118 @@
 groups:
-  - name: asr_alerts
-    rules:
-      - alert: APIHighErrorRate
-        expr: sum(rate(http_requests_total{status=~"5.."}[5m])) / sum(rate(http_requests_total[5m])) > 0.05
-        for: 5m
-        labels:
-          severity: critical
-        annotations:
-          summary: "High error rate in API responses"
-          description: "API server error rate is above 5% ({{ $value | printf \"%.2f\" }})"
+- name: asr_alerts
+  rules:
+  - alert: APIHighErrorRate
+    expr: sum(rate(http_requests_total{status=~"5.."}[5m])) / sum(rate(http_requests_total[5m])) > 0.05
+    for: 5m
+    labels:
+      severity: critical
+    annotations:
+      summary: High error rate in API responses
+      description: API server error rate is above 5% ({{ $value | printf "%.2f" }})
 
-      - alert: APIHighLatency
-        expr: histogram_quantile(0.95, sum(rate(http_request_duration_seconds_bucket{job="asr-api"}[5m])) by (le)) > 2
-        for: 5m
-        labels:
-          severity: warning
-        annotations:
-          summary: "API response time is high"
-          description: "95th percentile of API response time is above 2 seconds ({{ $value | printf \"%.2f\" }}s)"
+  - alert: APIHighLatency
+    expr: histogram_quantile(0.95, sum(rate(http_request_duration_seconds_bucket{job="asr-api"}[5m])) by (le)) > 2
+    for: 5m
+    labels:
+      severity: warning
+    annotations:
+      summary: API response time is high
+      description: 95th percentile of API response time is above 2 seconds ({{ $value | printf "%.2f" }}s)
 
-      - alert: APIDown
-        expr: up{job="asr-api"} == 0
-        for: 1m
-        labels:
-          severity: critical
-        annotations:
-          summary: "API service is down"
-          description: "The API service has been down for more than 1 minute"
+  - alert: APIDown
+    expr: up{job="asr-api"} == 0
+    for: 1m
+    labels:
+      severity: critical
+    annotations:
+      summary: API service is down
+      description: The API service has been down for more than 1 minute
 
-      - alert: HighMemoryUsage
-        expr: (container_memory_usage_bytes{container_name=~".*api.*"} / container_spec_memory_limit_bytes{container_name=~".*api.*"} * 100) > 80
-        for: 5m
-        labels:
-          severity: warning
-        annotations:
-          summary: "High memory usage in API container"
-          description: "API container is using more than 80% of its memory limit ({{ $value | printf \"%.2f\" }}%)"
+  - alert: HighMemoryUsage
+    expr: (container_memory_usage_bytes{container_name=~".*api.*"} / container_spec_memory_limit_bytes{container_name=~".*api.*"} * 100) > 80
+    for: 5m
+    labels:
+      severity: warning
+    annotations:
+      summary: High memory usage in API container
+      description: API container is using more than 80% of its memory limit ({{ $value | printf "%.2f" }}%)
 
-      - alert: HighCPUUsage
-        expr: (rate(container_cpu_usage_seconds_total{container_name=~".*api.*"}[5m]) / container_spec_cpu_quota{container_name=~".*api.*"} * 100) > 80
-        for: 5m
-        labels:
-          severity: warning
-        annotations:
-          summary: "High CPU usage in API container"
-          description: "API container is using more than 80% of its CPU limit ({{ $value | printf \"%.2f\" }}%)"
+  - alert: HighCPUUsage
+    expr: (rate(container_cpu_usage_seconds_total{container_name=~".*api.*"}[5m]) / container_spec_cpu_quota{container_name=~".*api.*"} * 100) > 80
+    for: 5m
+    labels:
+      severity: warning
+    annotations:
+      summary: High CPU usage in API container
+      description: API container is using more than 80% of its CPU limit ({{ $value | printf "%.2f" }}%)
 
-      - alert: TranscriptionErrorRate
-        expr: rate(transcription_errors_total[5m]) / rate(transcription_requests_total[5m]) > 0.1
-        for: 5m
-        labels:
-          severity: warning
-        annotations:
-          summary: "High transcription error rate"
-          description: "ASR system is experiencing a transcription error rate above 10% ({{ $value | printf \"%.2f\" }}%)" 
+  - alert: TranscriptionErrorRate
+    expr: rate(transcription_errors_total[5m]) / rate(transcription_requests_total[5m]) > 0.1
+    for: 5m
+    labels:
+      severity: warning
+    annotations:
+      summary: High transcription error rate
+      description: ASR system is experiencing a transcription error rate above 10% ({{ $value | printf "%.2f" }}%)
+
+- name: asr_api_alerts
+  rules:
+  - alert: ASRApiHighErrorRate
+    expr: sum(rate(api_requests_total{status_code=~"5.."}[5m])) / sum(rate(api_requests_total[5m])) > 0.05
+    for: 5m
+    labels:
+      severity: critical
+      service: asr-api
+    annotations:
+      summary: ASR API high error rate
+      description: ASR API has a high error rate of {{ $value | humanizePercentage }} over the last 5 minutes.
+
+  - alert: ASRApiHighLatency
+    expr: histogram_quantile(0.95, sum(rate(api_request_duration_seconds_bucket{endpoint="/transcribe"}[5m])) by (le)) > 10
+    for: 5m
+    labels:
+      severity: warning
+      service: asr-api
+    annotations:
+      summary: ASR API high latency
+      description: ASR API 95th percentile latency for /transcribe endpoint is {{ $value }} seconds over the last 5 minutes.
+
+  - alert: ASRModelLoadFailure
+    expr: increase(api_model_load_failures_total[15m]) > 0
+    for: 1m
+    labels:
+      severity: critical
+      service: asr-api
+    annotations:
+      summary: ASR model load failure
+      description: There have been {{ $value }} model load failures in the last 15 minutes.
+
+  - alert: ASRApiHighInferenceInProgress
+    expr: sum(api_inference_in_progress) > 50
+    for: 10m
+    labels:
+      severity: warning
+      service: asr-api
+    annotations:
+      summary: High number of inference requests in progress
+      description: There are {{ $value }} inference requests in progress for more than 10 minutes.
+
+  - alert: ASRApiInstances
+    expr: up{job="asr-api"} < 2
+    for: 5m
+    labels:
+      severity: critical
+      service: asr-api
+    annotations:
+      summary: Not enough ASR API instances
+      description: There are only {{ $value }} ASR API instances up. At least 2 should be running.
+
+  - alert: ASRApiNoRequests
+    expr: sum(rate(api_requests_total[30m])) == 0
+    for: 30m
+    labels:
+      severity: warning
+      service: asr-api
+    annotations:
+      summary: No requests to ASR API
+      description: ASR API has received no requests in the last 30 minutes. This might indicate a problem with clients or networking.

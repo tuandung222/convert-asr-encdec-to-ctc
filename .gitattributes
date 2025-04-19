@@ -1,0 +1,17 @@
+# Mark Jupyter notebooks to be treated as binary files
+*.ipynb binary
+
+# Standard text files should have platform-specific line endings converted
+*.py text eol=lf
+*.md text eol=lf
+*.yml text eol=lf
+*.yaml text eol=lf
+*.json text eol=lf
+*.txt text eol=lf
+
+# Scripts should have platform-specific line endings converted
+*.sh text eol=lf
+
+# Docker files
+Dockerfile text eol=lf
+*.Dockerfile text eol=lf 

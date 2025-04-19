@@ -399,10 +399,10 @@ from src.models.inference_model import create_asr_model
 def test_model_performance(audio_path, model_types=["pytorch", "onnx"]):
     """Compare performance between different model types"""
     results = {}
-    
+
     for model_type in model_types:
         print(f"\nTesting {model_type.upper()} model:")
-        
+
         # Load model
         start_time = time.time()
         model = create_asr_model(
@@ -412,7 +412,7 @@ def test_model_performance(audio_path, model_types=["pytorch", "onnx"]):
         )
         load_time = time.time() - start_time
         print(f"  Model loaded in {load_time:.2f} seconds")
-        
+
         # Run inference (multiple times to get average)
         inference_times = []
         for i in range(5):
@@ -421,7 +421,7 @@ def test_model_performance(audio_path, model_types=["pytorch", "onnx"]):
             inference_time = time.time() - start_time
             inference_times.append(inference_time)
             print(f"  Run {i+1}: {inference_time:.2f} seconds")
-        
+
         # Calculate statistics
         avg_time = sum(inference_times) / len(inference_times)
         results[model_type] = {
@@ -429,15 +429,15 @@ def test_model_performance(audio_path, model_types=["pytorch", "onnx"]):
             "avg_inference_time": avg_time,
             "text": result["text"]
         }
-        
+
         print(f"  Average inference time: {avg_time:.2f} seconds")
         print(f"  Transcription: {result['text']}")
-    
+
     # Compare results
     if "pytorch" in results and "onnx" in results:
         speedup = results["pytorch"]["avg_inference_time"] / results["onnx"]["avg_inference_time"]
         print(f"\nONNX speedup: {speedup:.2f}x faster than PyTorch")
-        
+
     return results
 
 # Test with your audio file
@@ -512,4 +512,4 @@ deactivate
 - If experiencing issues with the FastAPI server, check logs for detailed error messages
 - For memory usage issues, consider reducing batch sizes or model complexity
 - The CTC-based model should be significantly faster than the original Whisper encoder-decoder model
-- For production, consider optimizing the model with ONNX or TensorRT for faster inference 
+- For production, consider optimizing the model with ONNX or TensorRT for faster inference

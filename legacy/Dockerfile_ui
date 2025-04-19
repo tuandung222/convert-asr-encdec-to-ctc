@@ -2,11 +2,7 @@ FROM python:3.10-slim
 
 WORKDIR /app
 
-# Copy requirements and install dependencies
-COPY ui/requirements.txt .
-RUN pip install --no-cache-dir -r requirements.txt
-
-# Install ffmpeg and other dependencies for audio processing
+# Install system dependencies - combine into a single layer 
 RUN apt-get update && \
     apt-get install -y --no-install-recommends \
     ffmpeg \
@@ -14,7 +10,11 @@ RUN apt-get update && \
     && apt-get clean && \
     rm -rf /var/lib/apt/lists/*
 
-# Copy application code
+# Copy only UI requirements file
+COPY ui/requirements.txt .
+RUN pip install --no-cache-dir -r requirements.txt
+
+# Copy only necessary application files
 COPY ui/ .
 
 # Expose the port Streamlit runs on

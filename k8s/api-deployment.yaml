@@ -5,42 +5,41 @@ metadata:
   labels:
     app: asr-api
 spec:
-  replicas: 3
+  replicas: 2
   selector:
     matchLabels:
       app: asr-api
+  strategy:
+    type: RollingUpdate
+    rollingUpdate:
+      maxSurge: 1
+      maxUnavailable: 0
   template:
     metadata:
       labels:
         app: asr-api
       annotations:
-        prometheus.io/scrape: "true"
-        prometheus.io/path: "/metrics"
-        prometheus.io/port: "8000"
+        prometheus.io/scrape: 'true'
+        prometheus.io/port: '8000'
+        prometheus.io/path: /metrics
     spec:
       containers:
       - name: asr-api
-        image: yourdockerhub/asr-api:{{IMAGE_TAG}}
+        image: vietnamese-asr:latest
+        imagePullPolicy: IfNotPresent
+        resources:
+          limits:
+            cpu: '4'
+            memory: 8Gi
+            nvidia.com/gpu: 1
+          requests:
+            cpu: '2'
+            memory: 4Gi
         ports:
         - containerPort: 8000
-        env:
-        - name: PORT
-          value: "8000"
-        - name: INFERENCE_DEVICE
-          value: "cpu"
-        - name: JAEGER_HOST
-          value: "jaeger"
-        - name: JAEGER_PORT
-          value: "6831"
-        - name: ENVIRONMENT
-          value: "production"
-        resources:
-          requests:
-            memory: "1Gi"
-            cpu: "500m"
-          limits:
-            memory: "2Gi"
-            cpu: "1000m"
+        envFrom:
+        - configMapRef:
+            name: asr-api-config
         readinessProbe:
           httpGet:
             path: /health
@@ -52,46 +51,16 @@ spec:
             path: /health
             port: 8000
           initialDelaySeconds: 60
-          periodSeconds: 30
+          periodSeconds: 20
         volumeMounts:
-        - name: model-volume
-          mountPath: /app/checkpoints
-          readOnly: true
+        - name: model-cache
+          mountPath: /app/models
+        - name: tmp-volume
+          mountPath: /tmp
       volumes:
-      - name: model-volume
-        persistentVolumeClaim:
-          claimName: model-pvc
-
----
-apiVersion: v1
-kind: Service
-metadata:
-  name: asr-api
-spec:
-  selector:
-    app: asr-api
-  ports:
-  - port: 80
-    targetPort: 8000
-  type: ClusterIP
-
----
-apiVersion: networking.k8s.io/v1
-kind: Ingress
-metadata:
-  name: asr-api-ingress
-  annotations:
-    nginx.ingress.kubernetes.io/rewrite-target: /
-    nginx.ingress.kubernetes.io/ssl-redirect: "false"
-    nginx.ingress.kubernetes.io/proxy-body-size: "100m"
-spec:
-  rules:
-  - http:
-      paths:
-      - path: /
-        pathType: Prefix
-        backend:
-          service:
-            name: asr-api
-            port:
-              number: 80 
+      - name: model-cache
+        emptyDir:
+          sizeLimit: 10Gi
+      - name: tmp-volume
+        emptyDir:
+          sizeLimit: 1Gi

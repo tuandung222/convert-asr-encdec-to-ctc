@@ -1,0 +1,54 @@
+# Stage 1: Build dependencies
+FROM python:3.10-slim AS builder
+
+WORKDIR /app
+
+# Install build dependencies
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    gcc \
+    g++ \
+    && rm -rf /var/lib/apt/lists/*
+
+# Copy requirements file
+COPY api/requirements.txt .
+
+# Install dependencies
+RUN pip install --no-cache-dir --user -r requirements.txt
+
+# Stage 2: Runtime image
+FROM python:3.10-slim
+
+WORKDIR /app
+
+# Install only runtime dependencies
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    libsndfile1 \
+    ffmpeg \
+    && apt-get clean \
+    && rm -rf /var/lib/apt/lists/*
+
+# Copy installed packages from builder
+COPY --from=builder /root/.local /root/.local
+ENV PATH=/root/.local/bin:$PATH
+
+# Copy application code - only what's needed
+COPY src/models /app/src/models
+COPY src/utils /app/src/utils
+COPY src/metrics.py /app/src/
+COPY api /app/api
+
+# Create directories
+RUN mkdir -p /app/checkpoints /tmp/prometheus-metrics
+
+# Set environment variables
+ENV PYTHONUNBUFFERED=1 \
+    PYTHONDONTWRITEBYTECODE=1 \
+    PORT=8000 \
+    INFERENCE_DEVICE=cpu \
+    PROMETHEUS_MULTIPROC_DIR=/tmp/prometheus-metrics
+
+# Expose the application port
+EXPOSE 8000
+
+# Run the application with uvicorn
+CMD ["uvicorn", "api.app:app", "--host", "0.0.0.0", "--port", "8000"] 

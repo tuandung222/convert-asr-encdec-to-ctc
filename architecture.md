@@ -57,7 +57,7 @@ This document outlines the MLOps architecture for the Vietnamese ASR system usin
 
 ### 6. Kubernetes Deployment
 
-- **Configuration**: 
+- **Configuration**:
   - 3 API service replicas
   - Autoscaling based on CPU/memory utilization
   - Rolling updates for zero-downtime deployments
@@ -118,4 +118,4 @@ This document outlines the MLOps architecture for the Vietnamese ASR system usin
 - Batch processing for higher throughput
 - Caching strategies for improved latency
 - Resource allocation tuning in Kubernetes
-- Horizontal scaling based on traffic patterns 
+- Horizontal scaling based on traffic patterns

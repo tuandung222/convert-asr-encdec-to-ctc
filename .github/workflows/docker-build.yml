@@ -1,0 +1,52 @@
+name: Docker Build and Test
+
+on:
+  pull_request:
+    paths:
+      - 'api/**'
+      - 'ui/**'
+      - 'src/**'
+      - 'docker/**'
+      - '.github/workflows/docker-build.yml'
+  push:
+    branches: [main]
+    paths:
+      - 'api/**'
+      - 'ui/**'
+      - 'src/**'
+      - 'docker/**'
+      - '.github/workflows/docker-build.yml'
+
+jobs:
+  docker-build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v3
+      
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v2
+      
+      - name: Build API Docker image
+        uses: docker/build-push-action@v4
+        with:
+          context: .
+          file: api/Dockerfile
+          push: false
+          tags: vietnamese-asr-api:test
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+      
+      - name: Build UI Docker image
+        uses: docker/build-push-action@v4
+        with:
+          context: .
+          file: ui/Dockerfile
+          push: false
+          tags: vietnamese-asr-ui:test
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+      
+      - name: Test Docker Compose configuration
+        run: |
+          docker-compose -f docker/docker-compose.base.yml -f docker/docker-compose.api.yml -f docker/docker-compose.ui.yml config 

@@ -134,4 +134,7 @@ saved_models/
 tmp/
 temp/
 .tmp/
-.temp/ 
+.temp/
+
+# Pre-commit
+.pre-commit-cache/

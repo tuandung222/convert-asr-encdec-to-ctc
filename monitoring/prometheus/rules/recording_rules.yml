@@ -1,42 +1,29 @@
 groups:
-  - name: asr_recording_rules
-    rules:
-      # API performance metrics
-      - record: job:api_request_duration_seconds:p95
-        expr: histogram_quantile(0.95, sum(rate(http_request_duration_seconds_bucket{job="asr-api"}[5m])) by (le))
-      
-      - record: job:api_request_duration_seconds:p50
-        expr: histogram_quantile(0.5, sum(rate(http_request_duration_seconds_bucket{job="asr-api"}[5m])) by (le))
-      
-      - record: job:api_requests_total:rate5m
-        expr: sum(rate(http_requests_total{job="asr-api"}[5m])) by (status)
-      
-      - record: job:api_errors_total:rate5m
-        expr: sum(rate(http_requests_total{job="asr-api", status=~"5.."}[5m]))
-      
-      - record: job:api_error_ratio:5m
-        expr: sum(rate(http_requests_total{job="asr-api", status=~"5.."}[5m])) / sum(rate(http_requests_total{job="asr-api"}[5m]))
-      
-      # Transcription metrics
-      - record: job:transcription_duration_seconds:avg5m
-        expr: avg(rate(transcription_duration_seconds_sum{job="asr-api"}[5m])) / avg(rate(transcription_duration_seconds_count{job="asr-api"}[5m]))
-      
-      - record: job:transcription_requests:rate5m
-        expr: sum(rate(transcription_requests_total{job="asr-api"}[5m]))
-      
-      - record: job:transcription_errors:rate5m
-        expr: sum(rate(transcription_errors_total{job="asr-api"}[5m]))
-      
-      - record: job:transcription_error_ratio:5m
-        expr: sum(rate(transcription_errors_total{job="asr-api"}[5m])) / sum(rate(transcription_requests_total{job="asr-api"}[5m]))
-      
-      # Resource usage metrics
-      - record: job:container_memory_usage:percent
-        expr: container_memory_usage_bytes{container_name=~".*api.*"} / container_spec_memory_limit_bytes{container_name=~".*api.*"} * 100
-      
-      - record: job:container_cpu_usage:percent
-        expr: rate(container_cpu_usage_seconds_total{container_name=~".*api.*"}[5m]) / container_spec_cpu_quota{container_name=~".*api.*"} * 100
-      
-      # Audio processing metrics
-      - record: job:audio_processing_ratio:5m
-        expr: sum(rate(audio_processing_duration_seconds_sum{job="asr-api"}[5m])) / sum(rate(audio_duration_seconds_sum{job="asr-api"}[5m])) 
+- name: asr_api_recording_rules
+  rules:
+  - record: job:api_requests_total:rate5m
+    expr: sum(rate(api_requests_total[5m])) by (job, endpoint)
+
+  - record: job:api_request_duration_seconds:p95_5m
+    expr: histogram_quantile(0.95, sum(rate(api_request_duration_seconds_bucket[5m])) by (job, endpoint, le))
+
+  - record: job:api_transcription_duration_seconds:avg_5m
+    expr: sum(rate(api_transcription_duration_seconds_sum[5m])) by (job) / sum(rate(api_transcription_duration_seconds_count[5m])) by (job)
+
+  - record: job:api_transcription_duration_seconds:p95_5m
+    expr: histogram_quantile(0.95, sum(rate(api_transcription_duration_seconds_bucket[5m])) by (job, le))
+
+  - record: job:api_audio_duration_seconds:avg_5m
+    expr: sum(rate(api_audio_duration_seconds_sum[5m])) by (job) / sum(rate(api_audio_duration_seconds_count[5m])) by (job)
+
+  - record: job:api_error_rate:ratio_5m
+    expr: sum(rate(api_requests_total{status_code=~"5.."}[5m])) by (job) / sum(rate(api_requests_total[5m])) by (job)
+
+  - record: job:api_success_rate:ratio_5m
+    expr: sum(rate(api_requests_total{status_code=~"2.."}[5m])) by (job) / sum(rate(api_requests_total[5m])) by (job)
+
+  - record: job:api_model_loading_time_seconds:avg
+    expr: sum(api_model_loading_time_seconds_sum) by (job) / sum(api_model_loading_time_seconds_count) by (job)
+
+  - record: job:api_transcriptions_total:rate1h
+    expr: sum(rate(api_transcriptions_total[1h])) by (job)

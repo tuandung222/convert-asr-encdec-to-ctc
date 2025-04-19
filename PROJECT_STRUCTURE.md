@@ -29,12 +29,12 @@ The core of the project is the ASR model implementation in `src/models/inference
 - **`PhoWhisperCTCModel`**: The CTC-based model that consists of:
   - A WhisperEncoder for feature extraction
   - A linear CTC head for sequence prediction
-  
+
 - **`ASRInferenceModel`**: A wrapper class that handles:
   - Model loading and initialization
   - Inference pipeline for audio transcription
   - Pre/post-processing of audio data
-  
+
 - **`ONNXASRInferenceModel`**: An extension that provides ONNX support for optimized inference on CPU:
   - Automatic conversion from PyTorch to ONNX format
   - INT8 quantization for 3-4x faster CPU inference
@@ -70,7 +70,7 @@ The API server is implemented using FastAPI and provides a RESTful interface for
 
 The API follows best practices with proper error handling, request validation, and response formatting.
 
-### 4. User Interfaces 
+### 4. User Interfaces
 
 The project provides two user interfaces:
 
@@ -97,7 +97,7 @@ These interfaces make the ASR model accessible to both technical and non-technic
   - Audio recording and file upload
   - Simple transcription display
   - Example audio files
-  
+
 - **`test_model.py`**: A test script for model validation with:
   - Model loading
   - Inference testing
@@ -130,61 +130,61 @@ These interfaces make the ASR model accessible to both technical and non-technic
 
 ### Source Files (`src/`)
 
-- **`src/models/inference_model.py`**: 
+- **`src/models/inference_model.py`**:
   - Core ASR model implementation
   - Model loading and checkpoint management
   - Audio transcription pipeline
   - CTC decoding functionality
 
-- **`src/utils/__init__.py`**: 
+- **`src/utils/__init__.py`**:
   - Utility functions package initialization
   - Common helper functions
 
 ### API Files (`api/`)
 
-- **`api/app.py`**: 
+- **`api/app.py`**:
   - FastAPI server implementation
   - REST API endpoints
   - Middleware for request processing
   - Error handling and validation
 
-- **`api/__init__.py`**: 
+- **`api/__init__.py`**:
   - API package initialization
 
 ### UI Files (`ui/`)
 
-- **`ui/app.py`**: 
+- **`ui/app.py`**:
   - Streamlit application
   - Audio recording and file upload interface
   - History tracking and visualization
   - API communication
 
-- **`ui/requirements.txt`**: 
+- **`ui/requirements.txt`**:
   - UI-specific dependencies
 
 ### Scripts and Entry Points
 
-- **`app.py`**: 
+- **`app.py`**:
   - Gradio demo application
   - Simple interface for ASR
 
-- **`test_model.py`**: 
+- **`test_model.py`**:
   - Model testing script
   - Performance validation
 
 ### Configuration Files
 
-- **`requirements.txt`**: 
+- **`requirements.txt`**:
   - Project dependencies
 
-- **`docker-compose.yml`**: 
+- **`docker-compose.yml`**:
   - Services composition
   - Environment configuration
   - Network and volume setup
 
 ## Data Flow
 
-1. **Audio Input**: 
+1. **Audio Input**:
    - User uploads or records audio through UI (Streamlit/Gradio)
    - Audio is sent to the API server
 
@@ -219,7 +219,7 @@ The ASR model uses a CTC-based approach:
    - Maps encoder outputs to vocabulary size
    - Produces per-frame token probabilities
 
-3. **Decoding**: 
+3. **Decoding**:
    - Argmax decoding for inference
    - Removal of blank tokens and duplicates
    - Mapping to text with tokenizer
@@ -246,4 +246,4 @@ The deployment uses Docker with:
 
 ## Conclusion
 
-The Vietnamese ASR project follows a well-structured, modular architecture that separates concerns and promotes maintainability. The combination of a fast, CTC-based model with user-friendly interfaces and robust API design creates a versatile speech recognition system that's efficient, accessible, and production-ready. 
+The Vietnamese ASR project follows a well-structured, modular architecture that separates concerns and promotes maintainability. The combination of a fast, CTC-based model with user-friendly interfaces and robust API design creates a versatile speech recognition system that's efficient, accessible, and production-ready.

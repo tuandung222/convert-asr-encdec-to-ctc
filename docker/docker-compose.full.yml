@@ -1,0 +1,7 @@
+version: '3.8'
+
+services:
+  # This file is empty because it's meant to be used with docker-compose's -f flag
+  # to combine multiple compose files:
+  #
+  # docker-compose -f docker/docker-compose.base.yml -f docker/docker-compose.api.yml -f docker/docker-compose.ui.yml -f docker/docker-compose.monitoring.yml up -d 

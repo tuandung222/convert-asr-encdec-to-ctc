@@ -1,33 +1,33 @@
 apiVersion: 1
 
 datasources:
-  - name: Prometheus
-    type: prometheus
-    access: proxy
-    orgId: 1
-    url: http://prometheus:9090
-    basicAuth: false
-    isDefault: true
-    editable: true
-    version: 1
-    jsonData:
-      httpMethod: POST
-      exemplarTraceIdDestinations:
-        - name: traceID
-          datasourceUid: jaeger
-      timeInterval: "15s"
-      queryTimeout: "60s"
-    secureJsonData: {}
-    
-  - name: Jaeger
-    type: jaeger
-    uid: jaeger
-    url: http://jaeger:16686
-    access: proxy
-    orgId: 1
-    isDefault: false
-    version: 1
-    editable: true
-    jsonData:
-      nodeGraph:
-        enabled: true 
+- name: Prometheus
+  type: prometheus
+  access: proxy
+  orgId: 1
+  url: http://prometheus:9090
+  basicAuth: false
+  isDefault: true
+  editable: true
+  version: 1
+  jsonData:
+    httpMethod: POST
+    exemplarTraceIdDestinations:
+    - name: traceID
+      datasourceUid: jaeger
+    timeInterval: 15s
+    queryTimeout: 60s
+  secureJsonData: {}
+
+- name: Jaeger
+  type: jaeger
+  uid: jaeger
+  url: http://jaeger:16686
+  access: proxy
+  orgId: 1
+  isDefault: false
+  version: 1
+  editable: true
+  jsonData:
+    nodeGraph:
+      enabled: true

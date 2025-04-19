@@ -34,7 +34,7 @@ self.test_url = "https://huggingface.co/datasets/linhtran92/viet_bud500/resolve/
 We use PyTorch Lightning's `LightningDataModule` for data handling. The `VietBud500DataModule` encapsulates:
 
 1. **Data loading**: Loading and caching the dataset from HuggingFace
-2. **Data preprocessing**: 
+2. **Data preprocessing**:
    - Audio feature extraction
    - Transcription tokenization
 3. **Data splitting**: Creating train/validation/test splits
@@ -50,23 +50,23 @@ class VietBud500DataModule(pl.LightningDataModule):
         pin_memory: bool = False,
     ):
         # Initialization
-        
+
     def prepare_data(self):
         # Download and prepare data
-        
+
     def setup(self, stage=None):
         # Create train/val/test splits
-        
+
     def collate_fn(self, batch):
         # Process audio and transcription
         # Extract features and tokenize transcriptions
-        
+
     def train_dataloader(self):
         # Return DataLoader for training
-        
+
     def val_dataloader(self):
         # Return DataLoader for validation
-        
+
     def test_dataloader(self):
         # Return DataLoader for testing
 ```
@@ -102,14 +102,14 @@ class PhoWhisperCTCModel(nn.Module):
         super().__init__()
         self.encoder = encoder
         self.ctc_head = torch.nn.Linear(dim, vocab_size)
-    
+
     def forward(self, input_features, attention_mask=None):
         # Get encoder output
         encoder_out = self.encoder(input_features, attention_mask=attention_mask).last_hidden_state
-        
+
         # Apply CTC head to get logits
         logits = self.ctc_head(encoder_out)
-        
+
         return logits
 ```
 
@@ -128,25 +128,25 @@ class PhoWhisperLightningModule(pl.LightningModule):
         # Initialize module and load processor and config
         # Create encoder and CTC head
         # Set up CTC loss
-        
+
     def forward(self, input_features, labels=None):
         # Forward pass through encoder
         # Forward pass through CTC head
         # Compute CTC loss if labels provided
-        
+
     def training_step(self, batch, batch_idx):
         # Process batch and compute loss
-        
+
     def validation_step(self, batch, batch_idx):
         # Validate model performance
-        
+
     def test_step(self, batch, batch_idx):
         # Test model performance
-        
+
     def configure_optimizers(self):
         # Configure AdamW optimizer
         # Configure learning rate scheduler
-        
+
     def ctc_decode(self, logits, processor=None):
         # Decode CTC logits to text
         # Remove blanks and collapse duplicates
@@ -300,10 +300,10 @@ class EvalCallback(pl.Callback):
     def __init__(self, processor):
         # Initialize callback with processor
         # Set up prediction and reference collection
-        
+
     def on_validation_batch_end(self, trainer, pl_module, outputs, batch, batch_idx):
         # Collect predictions and references
-        
+
     def on_validation_epoch_end(self, trainer, pl_module):
         # Calculate WER
         # Log results
@@ -323,12 +323,12 @@ For inference, we decode the CTC output as follows:
 def ctc_decode(self, logits, processor=None):
     # Convert logits to class indices
     class_indices = logits.argmax(dim=2)
-    
+
     texts = []
     for seq in class_indices:
         # Remove blanks (pad tokens)
         seq_no_blank = seq[seq != processor.tokenizer.pad_token_id]
-        
+
         # Collapse repeats
         seq_collapsed = []
         prev_token = -1
@@ -336,16 +336,16 @@ def ctc_decode(self, logits, processor=None):
             if token != prev_token:
                 seq_collapsed.append(token.item())
                 prev_token = token
-        
+
         # Decode to text
         text = processor.decode(seq_collapsed, skip_special_tokens=False)
-        
+
         # Fix for tokenization bug: Remove the first two special tokens
         # The first tokens are artifacts from tokenization during training
         text = text[2:] if len(text) > 2 else text
-        
+
         texts.append(text)
-    
+
     return texts
 ```
 

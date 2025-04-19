@@ -35,4 +35,4 @@ ENV PYTHONUNBUFFERED=1 \
 EXPOSE 7860
 
 # Run the application
-CMD ["python", "-m", "src.app.gradio_demo"] 
+CMD ["python", "-m", "src.app.gradio_demo"]

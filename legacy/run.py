@@ -28,7 +28,7 @@ def run_app(args: argparse.Namespace) -> int:
     """Run the interactive demo app"""
     if args.app.lower() == "gradio":
         logger.info(f"Starting Gradio demo on port {args.port}...")
-        from app import load_model, create_gradio_app
+        from legacy.app import load_model, create_gradio_app
         
         # Load the model
         model = load_model(args.device)

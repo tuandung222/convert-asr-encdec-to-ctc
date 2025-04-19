@@ -1,0 +1,51 @@
+[tool.black]
+line-length = 100
+target-version = ['py310']
+include = '\.pyi?$'
+exclude = '''
+/(
+    \.eggs
+  | \.git
+  | \.hg
+  | \.mypy_cache
+  | \.tox
+  | \.venv
+  | _build
+  | buck-out
+  | build
+  | dist
+  | venv
+  | checkpoints
+)/
+'''
+
+[tool.isort]
+profile = "black"
+line_length = 100
+multi_line_output = 3
+include_trailing_comma = true
+known_first_party = ["api", "src", "ui"]
+known_third_party = ["torch", "numpy", "fastapi", "streamlit", "transformers", "huggingface_hub", "pydantic"]
+
+[tool.mypy]
+python_version = "3.10"
+warn_return_any = true
+warn_unused_configs = true
+disallow_untyped_defs = false
+disallow_incomplete_defs = false
+check_untyped_defs = true
+disallow_untyped_decorators = false
+no_implicit_optional = true
+strict_optional = true
+
+[[tool.mypy.overrides]]
+module = [
+    "torch.*",
+    "numpy.*",
+    "transformers.*",
+    "huggingface_hub.*",
+    "librosa.*",
+    "torchaudio.*",
+    "soundfile.*"
+]
+ignore_missing_imports = true 

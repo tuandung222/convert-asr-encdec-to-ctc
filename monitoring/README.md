@@ -46,9 +46,9 @@ To add new metrics to the ASR system:
 
 ## Alerting
 
-The system can be configured to send alerts based on metric thresholds. 
+The system can be configured to send alerts based on metric thresholds.
 To configure alerts:
 
 1. Define alert rules in Prometheus
 2. Configure notification channels in Grafana
-3. Set up alerting on specific panels or dashboards 
+3. Set up alerting on specific panels or dashboards

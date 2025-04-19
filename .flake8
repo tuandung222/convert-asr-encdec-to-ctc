@@ -1,0 +1,11 @@
+[flake8]
+max-line-length = 100
+exclude = .git,__pycache__,docs/source/conf.py,old,build,dist,venv,.venv,checkpoints,examples
+ignore = E203, W503, E231
+max-complexity = 10
+per-file-ignores =
+    __init__.py:F401
+    # Allow long lines in docstrings for better readability
+    *.py:E501
+    # Ignore missing docstrings in tests
+    tests/*:D100,D101,D102,D103,D104 

@@ -1,5 +1,5 @@
 model:
-  name: "vinai/PhoWhisper-tiny"
+  name: vinai/PhoWhisper-tiny
   hidden_size: 384  # Matches PhoWhisper-tiny configuration
   dropout: 0.1
   ctc_head:
@@ -17,4 +17,4 @@ tokenizer:
 audio:
   sampling_rate: 16000
   feature_size: 80
-  max_length: 480000  # 30 seconds at 16kHz 
+  max_length: 480000  # 30 seconds at 16kHz

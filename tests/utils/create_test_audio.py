@@ -5,5 +5,5 @@ import soundfile as sf
 sample_rate = 16000
 duration = 2.0
 audio = np.zeros(int(sample_rate * duration))
-sf.write('examples/test_audio.wav', audio, sample_rate)
-print('Created test audio file: examples/test_audio.wav') 
+sf.write("examples/test_audio.wav", audio, sample_rate)
+print("Created test audio file: examples/test_audio.wav")

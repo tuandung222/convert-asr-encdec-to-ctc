@@ -60,7 +60,7 @@ The first run will automatically convert and quantize the model to INT8 ONNX for
 
 The training process involves:
 
-1. **Data Preparation**: 
+1. **Data Preparation**:
    - Using a subset of the VietBud500 dataset for Vietnamese speech
    - Processing audio data with WhisperProcessor for feature extraction
    - Preparing targets using CTC-based alignment
@@ -193,20 +193,30 @@ cd Convert-PhoWhisper-ASR-from-encdec-to-ctc
 
 ### Option 1: Run with Docker Compose (Recommended)
 
-The easiest way to run the entire stack is with Docker Compose:
+The project uses a modular Docker Compose structure for flexible deployment options:
 
 ```bash
-docker-compose up -d
+# Run the full stack (API, UI, and monitoring)
+docker-compose -f docker/docker-compose.base.yml \
+               -f docker/docker-compose.api.yml \
+               -f docker/docker-compose.ui.yml \
+               -f docker/docker-compose.monitoring.yml up -d
+
+# Or run just the API with monitoring
+docker-compose -f docker/docker-compose.base.yml \
+               -f docker/docker-compose.api.yml \
+               -f docker/docker-compose.monitoring.yml up -d
 ```
 
 This will start:
 - FastAPI Server (http://localhost:8000)
 - Streamlit UI (http://localhost:8501)
-- Gradio Demo (http://localhost:7860)
 - Monitoring Stack
   - Prometheus (http://localhost:9090)
   - Grafana (http://localhost:3000)
   - Jaeger (http://localhost:16686)
+
+See the `docker/README.md` for more deployment options.
 
 ### Option 2: Run Components Individually
 
@@ -214,10 +224,11 @@ This will start:
 
 ```bash
 # Install dependencies
-pip install -r requirements.txt
+pip install -r api/requirements.txt
 
 # Run the API server
-python -m api.app
+cd api
+uvicorn app:app --host 0.0.0.0 --port 8000
 ```
 
 The API will be available at http://localhost:8000
@@ -235,17 +246,13 @@ streamlit run app.py
 
 The UI will be available at http://localhost:8501
 
-#### Gradio Demo
+#### Monitoring Only (for Local Development)
 
 ```bash
-# Install dependencies
-pip install -r requirements.txt
-
-# Run the Gradio demo
-python app.py
+# Start just the monitoring stack
+docker-compose -f docker/docker-compose.base.yml \
+               -f docker/docker-compose.monitoring.yml up -d
 ```
-
-The Gradio demo will be available at http://localhost:7860
 
 ## Monitoring and Metrics
 
@@ -368,6 +375,49 @@ This project is licensed under the MIT License - see the LICENSE file for detail
 ## Acknowledgments
 
 - VinAI Research for the PhoWhisper-Tiny model
-- The creators of the VietBud500 dataset 
+- The creators of the VietBud500 dataset
 
-> **Note**: The project doesn't use a unified `run.py` interface as mentioned in legacy documentation. Instead, each component has its specific entry point as shown in the installation instructions. 
+> **Note**: The project doesn't use a unified `run.py` interface as mentioned in legacy documentation. Instead, each component has its specific entry point as shown in the installation instructions.
+
+# Development
+
+## Pre-commit Hooks
+
+This project uses pre-commit hooks to ensure code quality and consistency. To set up the development environment:
+
+1. Clone the repository:
+   ```bash
+   git clone https://github.com/tuandung222/Convert-PhoWhisper-ASR-from-encdec-to-ctc.git
+   cd Convert-PhoWhisper-ASR-from-encdec-to-ctc
+   ```
+
+2. Install dependencies:
+   ```bash
+   pip install -r api/requirements.txt
+   ```
+
+3. Install pre-commit:
+   ```bash
+   pip install pre-commit
+   ```
+
+4. Install the git hooks:
+   ```bash
+   pre-commit install
+   ```
+
+5. Run pre-commit on all files:
+   ```bash
+   pre-commit run --all-files
+   ```
+
+The pre-commit hooks will:
+- Format code with Black and isort
+- Run Flake8 for code linting
+- Check types with MyPy
+- Lint Dockerfiles with hadolint
+- Run security checks with Bandit
+- Format notebooks with nbqa
+- And more
+
+These hooks run automatically on every commit to ensure code quality and consistency throughout the project.
