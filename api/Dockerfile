@@ -35,5 +35,5 @@ ENV PYTHONUNBUFFERED=1 \
 # Expose the application port
 EXPOSE 8000
 
-# Run the application
-CMD ["python", "-m", "api.app"] 
+# Run the application with uvicorn
+CMD ["uvicorn", "api.app:app", "--host", "0.0.0.0", "--port", "8000"] 

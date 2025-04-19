@@ -22,19 +22,35 @@ def get_available_models():
     try:
         response = requests.get(f"{API_URL}/models")
         if response.status_code == 200:
-            return response.json()["models"]
+            data = response.json()
+            # Handle both cases - either a dictionary with 'models' key or direct list
+            if isinstance(data, dict) and "models" in data:
+                return data["models"]
+            elif isinstance(data, list):
+                return data
+            else:
+                st.warning(f"Unexpected model data format: {data}")
+                return ["phowhisper-tiny-ctc"]
         else:
             st.error(f"Failed to get models: {response.text}")
-            return ["whisper-base"]
+            return ["phowhisper-tiny-ctc"]
     except Exception as e:
         st.error(f"Error connecting to API: {e}")
-        return ["whisper-base"]
+        return ["phowhisper-tiny-ctc"]
 
 def get_supported_languages():
     try:
         response = requests.get(f"{API_URL}/languages")
         if response.status_code == 200:
-            return response.json()["languages"]
+            data = response.json()
+            # Handle both cases - either a dictionary with 'languages' key or direct list
+            if isinstance(data, dict) and "languages" in data:
+                return data["languages"]
+            elif isinstance(data, list):
+                return data
+            else:
+                st.warning(f"Unexpected language data format: {data}")
+                return ["vi", "en", "auto"]
         else:
             st.error(f"Failed to get languages: {response.text}")
             return ["vi", "en", "auto"]
@@ -60,7 +76,12 @@ def transcribe_audio(audio_file, model, language):
             response = requests.post(f"{API_URL}/transcribe", files=files, data=data)
         
         if response.status_code == 200:
-            return response.json()
+            result = response.json()
+            # Add a success flag and default confidence for UI
+            result["success"] = True
+            if "confidence" not in result:
+                result["confidence"] = 0.8  # Default confidence if not provided by API
+            return result
         else:
             st.error(f"Error: {response.status_code} - {response.text}")
             return None
@@ -201,16 +222,71 @@ def main():
         st.header("Record Audio")
         st.warning("Note: Browser microphone access is required for recording.")
         
-        # Audio recording using Streamlit's native audio recorder
-        audio_bytes = st.audio_recorder(
-            "Click to record", 
-            pause_threshold=2.0,
-            sample_rate=16000
-        )
+        # Initialize variables outside the try block
+        audio_bytes = None
+        audio_recorded = False
         
-        if audio_bytes:
-            st.audio(audio_bytes, format="audio/wav")
+        # Install and use streamlit_webrtc for audio recording
+        try:
+            from streamlit_webrtc import webrtc_streamer
+            import av
             
+            # Setup a container for audio recording
+            record_container = st.container()
+            audio_buffer = []
+            
+            with record_container:
+                def audio_callback(frame):
+                    audio_buffer.append(frame.to_ndarray())
+                    return frame
+                
+                webrtc_ctx = webrtc_streamer(
+                    key="audio-recorder",
+                    audio_receiver_size=1024,
+                    media_stream_constraints={"video": False, "audio": True},
+                    video_processor_factory=None,
+                    audio_processor_factory=lambda: audio_callback,
+                )
+                
+                record_button = st.button("Save Recording")
+                
+                if record_button and len(audio_buffer) > 0:
+                    # Convert the audio buffer to a WAV file
+                    audio_recorded = True
+                    
+                    try:
+                        import numpy as np
+                        from pydub import AudioSegment
+                        import io
+                        
+                        # Concatenate all audio frames
+                        audio_frames = np.concatenate(audio_buffer, axis=0)
+                        
+                        # Convert to int16 format
+                        audio_frames = (audio_frames * 32767).astype(np.int16)
+                        
+                        # Create AudioSegment
+                        audio_segment = AudioSegment(
+                            audio_frames.tobytes(),
+                            frame_rate=16000,
+                            sample_width=2,
+                            channels=1
+                        )
+                        
+                        # Export to WAV bytes
+                        buffer = io.BytesIO()
+                        audio_segment.export(buffer, format="wav")
+                        audio_bytes = buffer.getvalue()
+                        
+                        st.audio(audio_bytes, format="audio/wav")
+                        st.success("Audio recorded successfully!")
+                    except Exception as e:
+                        st.error(f"Failed to process audio: {e}")
+        except ImportError:
+            st.error("Please install required packages: `pip install streamlit-webrtc av pydub`")
+            st.info("Alternatively, you can use the file upload tab to upload audio files.")
+        
+        if audio_bytes and audio_recorded:
             if st.button("Transcribe Recorded Audio"):
                 # Create a temporary file for the audio
                 with tempfile.NamedTemporaryFile(delete=False, suffix=".wav") as tmp_file:
@@ -280,7 +356,7 @@ def main():
             # Add clear history button
             if st.button("Clear History"):
                 st.session_state.transcription_history = []
-                st.experimental_rerun()
+                st.rerun()
     
     # Tab 4: System Status
     with tab4:
@@ -325,7 +401,7 @@ def main():
         
         if st.button("Show Metrics Dashboard", key="show_metrics_btn"):
             st.session_state.show_metrics = True
-            st.experimental_rerun()
+            st.rerun()
     
     # Footer
     st.markdown("---")

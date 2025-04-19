@@ -10,15 +10,15 @@ from typing import Dict, List, Optional, Any
 import uvicorn
 from fastapi import FastAPI, File, UploadFile, Form, HTTPException, Depends
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import JSONResponse
+from fastapi.responses import JSONResponse, Response
 from pydantic import BaseModel
 from starlette.requests import Request
 from starlette.responses import Response
 import torch
 
 # Add Prometheus metrics
-from prometheus_client import make_asgi_app
 import prometheus_client
+from prometheus_client import multiprocess
 
 # Setup logging
 logging.basicConfig(
@@ -26,6 +26,14 @@ logging.basicConfig(
     format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
 )
 logger = logging.getLogger(__name__)
+
+# Set up multiprocess metrics collection for Prometheus
+prometheus_multiproc_dir = os.environ.get("PROMETHEUS_MULTIPROC_DIR")
+if prometheus_multiproc_dir:
+    logger.info(f"Using prometheus multiprocess directory: {prometheus_multiproc_dir}")
+    if not os.path.exists(prometheus_multiproc_dir):
+        os.makedirs(prometheus_multiproc_dir, exist_ok=True)
+    prometheus_client.multiprocess.start_http_server_in_different_process = lambda **kwargs: None
 
 # Add the project root to the path
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
@@ -86,8 +94,15 @@ app = FastAPI(
 )
 
 # Add Prometheus metrics endpoint
-metrics_app = make_asgi_app()
-app.mount("/metrics", metrics_app)
+@app.get("/metrics")
+async def metrics():
+    if prometheus_multiproc_dir:
+        registry = prometheus_client.CollectorRegistry()
+        multiprocess.MultiProcessCollector(registry)
+        content = prometheus_client.generate_latest(registry)
+    else:
+        content = prometheus_client.generate_latest(prometheus_client.REGISTRY)
+    return Response(content=content, media_type="text/plain")
 
 # Add CORS middleware
 app.add_middleware(
@@ -273,20 +288,26 @@ async def transcribe_audio(
         
         processing_time = time.time() - start_time
         
-        # Track audio duration
+        # Get duration from result or default to 1.0 to avoid division by zero
+        audio_duration = max(1.0, result.get("duration", 1.0))
+        
+        # Track audio duration if available
         audio_format = os.path.splitext(file.filename)[1].lstrip('.')
-        AUDIO_DURATION.labels(format=audio_format).observe(result.get("duration", 0.0))
+        AUDIO_DURATION.labels(format=audio_format).observe(audio_duration)
         
         # Track transcription success
         TRANSCRIPTIONS.labels(model=model, language=language, status="success").inc()
+        
+        # Calculate real-time factor safely
+        real_time_factor = processing_time / max(1.0, audio_duration)
         
         # Create the response
         response = {
             "id": request.state.request_id,
             "text": result.get("text", ""),
-            "duration": result.get("duration", 0.0),
+            "duration": audio_duration,
             "processing_time": processing_time,
-            "real_time_factor": processing_time / (result.get("duration", 1.0)),
+            "real_time_factor": real_time_factor,
             "language": language,
             "model": model,
             "timestamp": datetime.now().isoformat(),
@@ -314,4 +335,4 @@ async def transcribe_audio(
 # Run the app if executed directly
 if __name__ == "__main__":
     port = int(os.environ.get("PORT", 8000))
-    uvicorn.run("app:app", host="0.0.0.0", port=port) 
+    uvicorn.run("api.app:app", host="0.0.0.0", port=port) 

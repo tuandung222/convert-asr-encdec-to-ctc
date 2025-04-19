@@ -6,10 +6,12 @@ WORKDIR /app
 COPY ui/requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
 
-# Install ffmpeg for audio processing
+# Install ffmpeg and other dependencies for audio processing
 RUN apt-get update && \
-    apt-get install -y --no-install-recommends ffmpeg && \
-    apt-get clean && \
+    apt-get install -y --no-install-recommends \
+    ffmpeg \
+    libsndfile1 \
+    && apt-get clean && \
     rm -rf /var/lib/apt/lists/*
 
 # Copy application code

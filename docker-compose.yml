@@ -101,7 +101,6 @@ services:
       - --web.enable-lifecycle
       - --web.enable-admin-api
       - --web.external-url=http://localhost:9090
-      - --alertmanager.url=http://alertmanager:9093
     restart: unless-stopped
     networks:
       - asr-network
@@ -155,7 +154,7 @@ services:
       - grafana_data:/var/lib/grafana
     environment:
       - GF_SECURITY_ADMIN_USER=admin
-      - GF_SECURITY_ADMIN_PASSWORD_FILE=/run/secrets/grafana_admin_password
+      - GF_SECURITY_ADMIN_PASSWORD=F7aJw3kQ9pL5xYzR
       - GF_USERS_ALLOW_SIGN_UP=false
       - GF_SERVER_ROOT_URL=http://localhost:3000
       - GF_SERVER_DOMAIN=localhost
@@ -163,8 +162,6 @@ services:
       - GF_AUTH_ANONYMOUS_ENABLED=false
       - GF_FEATURE_TOGGLES_ENABLE=publicDashboards
       - GF_UNIFIED_ALERTING_UI_DISABLE_REPROVISION=true
-    secrets:
-      - grafana_admin_password
     depends_on:
       - prometheus
     restart: unless-stopped

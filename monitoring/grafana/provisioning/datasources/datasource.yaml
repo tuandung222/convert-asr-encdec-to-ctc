@@ -5,7 +5,7 @@ datasources:
     type: prometheus
     access: proxy
     orgId: 1
-    url: http://prometheus:9090
+    url: http://172.18.0.3:9090
     basicAuth: false
     isDefault: true
     editable: true
@@ -17,7 +17,6 @@ datasources:
           datasourceUid: jaeger
       timeInterval: "15s"
       queryTimeout: "60s"
-      httpMethod: POST
     secureJsonData: {}
     
   - name: Jaeger
