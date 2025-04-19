@@ -1,5 +1,5 @@
 # Stage 1: Build dependencies
-FROM python:3.10.12-slim as builder
+FROM python:3.10.12-slim AS builder
 
 # Build arguments
 ARG DEBIAN_FRONTEND=noninteractive
@@ -20,9 +20,9 @@ ENV PATH="/opt/venv/bin:$PATH"
 
 # Install PyTorch CPU version first (better caching)
 RUN pip install --no-cache-dir \
-    torch==2.6.0+cpu \
-    torchaudio==2.6.0+cpu \
-    -f https://download.pytorch.org/whl/torch_stable.html
+    torch==2.2.1+cpu \
+    torchaudio==2.2.1+cpu \
+    --index-url https://download.pytorch.org/whl/cpu
 
 # Copy and install other requirements
 COPY api/requirements.txt .
@@ -52,11 +52,9 @@ RUN apt-get update && \
 WORKDIR /app
 
 # Create necessary directories with proper permissions
-RUN mkdir -p /app/checkpoints /tmp/prometheus-metrics && \
-    # Create non-root user
-    useradd -m -u ${APP_USER_UID} ${APP_USER} && \
-    # Set permissions
-    chown -R ${APP_USER}:${APP_USER} /app /tmp/prometheus-metrics
+RUN mkdir -p /app/checkpoints /tmp/prometheus-metrics
+RUN useradd -m -u ${APP_USER_UID} ${APP_USER}
+RUN chown -R ${APP_USER}:${APP_USER} /app /tmp/prometheus-metrics
 
 # Copy only necessary application files
 COPY src/models /app/src/models

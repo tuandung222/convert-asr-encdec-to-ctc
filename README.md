@@ -231,6 +231,8 @@ cd api
 uvicorn app:app --host 0.0.0.0 --port 8000
 ```
 
+
+
 The API will be available at http://localhost:8000
 
 #### Streamlit UI
@@ -242,6 +244,13 @@ pip install -r ui/requirements.txt
 # Run the Streamlit UI
 cd ui
 streamlit run app.py
+```
+
+Or:
+
+```bash
+docker-compose -f docker/docker-compose.base.yml \
+               -f docker/docker-compose.ui.yml up -d
 ```
 
 The UI will be available at http://localhost:8501

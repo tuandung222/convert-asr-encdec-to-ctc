@@ -10,8 +10,8 @@ services:
       - GRAFANA_URL=http://grafana:3000
     volumes:
       - ../examples:/app/examples
-    depends_on:
-      - api
+    # depends_on:
+    #   - api
     networks:
       - asr-network
     healthcheck:

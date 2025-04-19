@@ -6,8 +6,8 @@ python-multipart>=0.0.7
 starlette>=0.36.3
 
 # ML Dependencies
-torch>=2.6.0
-torchaudio>=2.6.0
+torch>=2.2.1
+torchaudio>=2.2.1
 transformers>=4.38.2
 huggingface_hub>=0.23.0
 soundfile>=0.12.1
