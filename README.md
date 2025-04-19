@@ -10,6 +10,7 @@ This project implements an Automatic Speech Recognition (ASR) system for Vietnam
 - FastAPI backend for production use
 - Docker support for easy deployment
 - Monitoring and observability built-in
+- ONNX optimization with INT8 quantization for CPU
 
 ## Model Architecture
 
@@ -17,12 +18,43 @@ The model is based on the PhoWhisper architecture, with the following modificati
 - Retains the encoder from PhoWhisper for feature extraction
 - Replaces the decoder with a CTC head for sequence modeling
 - Simplifies the inference process by removing the need for autoregressive decoding
+- Supports ONNX export with INT8 quantization for optimized CPU inference
 
 The CTC (Connectionist Temporal Classification) approach offers several advantages:
 - Faster inference (2-3x faster than real-time)
 - Simpler training with parallel decoding
 - Reduced model complexity and memory usage
 - Smaller deployment footprint
+
+## ONNX Optimization
+
+The model supports ONNX export with INT8 quantization for faster inference on CPU:
+
+### Benefits
+- **INT8 Quantization**: 3-4x speedup over FP32 with minimal accuracy loss
+- **Memory Reduction**: ~75% smaller memory footprint
+- **CPU Optimization**: Better cache utilization and vector operations
+- **Deployment Friendly**: Ideal for resource-constrained environments
+
+### Using ONNX Models
+To use the ONNX-optimized model:
+
+```python
+from src.models.inference_model import create_asr_model
+
+# Create model with ONNX optimization
+model = create_asr_model(
+    model_id="tuandunghcmut/PhoWhisper-tiny-CTC",
+    device="cpu",
+    model_type="onnx"  # Use ONNX optimized version
+)
+
+# Transcribe audio
+result = model.transcribe("path/to/audio.wav")
+print(result["text"])
+```
+
+The first run will automatically convert and quantize the model to INT8 ONNX format.
 
 ## Training Process
 

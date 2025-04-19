@@ -374,6 +374,68 @@ for result in sorted(results, key=lambda x: x["id"]):
 
 **Expected Result:** The system should handle concurrent requests without failures.
 
+### 7.3 ONNX Performance Testing
+
+To test the ONNX optimization with INT8 quantization, use the following script:
+
+```python
+import time
+import os
+from src.models.inference_model import create_asr_model
+
+def test_model_performance(audio_path, model_types=["pytorch", "onnx"]):
+    """Compare performance between different model types"""
+    results = {}
+    
+    for model_type in model_types:
+        print(f"\nTesting {model_type.upper()} model:")
+        
+        # Load model
+        start_time = time.time()
+        model = create_asr_model(
+            model_id="tuandunghcmut/PhoWhisper-tiny-CTC",
+            device="cpu",
+            model_type=model_type
+        )
+        load_time = time.time() - start_time
+        print(f"  Model loaded in {load_time:.2f} seconds")
+        
+        # Run inference (multiple times to get average)
+        inference_times = []
+        for i in range(5):
+            start_time = time.time()
+            result = model.transcribe(audio_path)
+            inference_time = time.time() - start_time
+            inference_times.append(inference_time)
+            print(f"  Run {i+1}: {inference_time:.2f} seconds")
+        
+        # Calculate statistics
+        avg_time = sum(inference_times) / len(inference_times)
+        results[model_type] = {
+            "load_time": load_time,
+            "avg_inference_time": avg_time,
+            "text": result["text"]
+        }
+        
+        print(f"  Average inference time: {avg_time:.2f} seconds")
+        print(f"  Transcription: {result['text']}")
+    
+    # Compare results
+    if "pytorch" in results and "onnx" in results:
+        speedup = results["pytorch"]["avg_inference_time"] / results["onnx"]["avg_inference_time"]
+        print(f"\nONNX speedup: {speedup:.2f}x faster than PyTorch")
+        
+    return results
+
+# Test with your audio file
+test_model_performance("path/to/audio.wav")
+```
+
+**Expected Results:**
+- ONNX with INT8 quantization should be 3-4x faster than PyTorch on CPU
+- Both models should produce similar transcription results
+- First-time ONNX run will be slower due to model conversion and quantization
+
 ## 8. Cleanup
 
 When done testing:
