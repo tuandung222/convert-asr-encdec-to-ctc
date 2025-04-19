@@ -9,6 +9,7 @@ import plotly.graph_objects as go
 import pandas as pd
 from dotenv import load_dotenv
 import streamlit.components.v1 as components
+from audio_recorder_streamlit import audio_recorder
 
 # Load environment variables
 load_dotenv()
@@ -240,8 +241,6 @@ def main():
                         mime="text/plain"
                     )
                     
-                    # Confidence gauge removed as per user request
-                    
                     # Add to history with timestamp
                     result["timestamp"] = time_module.strftime("%Y-%m-%d %H:%M:%S")
                     st.session_state.transcription_history.append(result)
@@ -249,113 +248,88 @@ def main():
     # Tab 2: Record Audio
     with tab2:
         st.header("Record Audio")
-        st.warning("Note: Browser microphone access is required for recording.")
         
-        # Initialize variables outside the try block
-        audio_bytes = None
-        audio_recorded = False
+        col1, col2 = st.columns([3, 1])
         
-        # Install and use streamlit_webrtc for audio recording
-        try:
-            from streamlit_webrtc import webrtc_streamer
-            import av
+        with col1:
+            st.markdown("### 🎙️ Click the microphone to start/stop recording")
             
-            # Setup a container for audio recording
-            record_container = st.container()
-            audio_buffer = []
+            # Use streamlit-audiorecorder for a simpler recording experience
+            audio_bytes = audio_recorder(
+                recording_color="#e8b62c", 
+                neutral_color="#6aa36f",
+                key="audio_recorder"
+            )
             
-            with record_container:
-                def audio_callback(frame):
-                    audio_buffer.append(frame.to_ndarray())
-                    return frame
+            if audio_bytes:
+                st.success("✅ Audio recorded successfully!")
+                st.audio(audio_bytes, format="audio/wav")
                 
-                webrtc_ctx = webrtc_streamer(
-                    key="audio-recorder",
-                    audio_receiver_size=1024,
-                    media_stream_constraints={"video": False, "audio": True},
-                    video_processor_factory=None,
-                    audio_processor_factory=lambda: audio_callback,
-                )
-                
-                record_button = st.button("Save Recording")
-                
-                if record_button and len(audio_buffer) > 0:
-                    # Convert the audio buffer to a WAV file
-                    audio_recorded = True
+                if st.button("🎯 Transcribe", key="transcribe_recording"):
+                    # Create a temporary file for the audio
+                    with tempfile.NamedTemporaryFile(delete=False, suffix=".wav") as tmp_file:
+                        tmp_file.write(audio_bytes)
+                        tmp_file_path = tmp_file.name
                     
                     try:
-                        import numpy as np
-                        from pydub import AudioSegment
-                        import io
+                        # Open the temp file for sending to API
+                        with open(tmp_file_path, "rb") as audio_file:
+                            result = transcribe_audio(audio_file, selected_model, selected_language)
                         
-                        # Concatenate all audio frames
-                        audio_frames = np.concatenate(audio_buffer, axis=0)
-                        
-                        # Convert to int16 format
-                        audio_frames = (audio_frames * 32767).astype(np.int16)
-                        
-                        # Create AudioSegment
-                        audio_segment = AudioSegment(
-                            audio_frames.tobytes(),
-                            frame_rate=16000,
-                            sample_width=2,
-                            channels=1
-                        )
-                        
-                        # Export to WAV bytes
-                        buffer = io.BytesIO()
-                        audio_segment.export(buffer, format="wav")
-                        audio_bytes = buffer.getvalue()
-                        
-                        st.audio(audio_bytes, format="audio/wav")
-                        st.success("Audio recorded successfully!")
-                    except Exception as e:
-                        st.error(f"Failed to process audio: {e}")
-        except ImportError:
-            st.error("Please install required packages: `pip install streamlit-webrtc av pydub`")
-            st.info("Alternatively, you can use the file upload tab to upload audio files.")
+                        if result and result.get("success", False):
+                            # Display the transcription results in a styled container
+                            st.success("✓ Transcription complete")
+                            
+                            # Result container with styling
+                            with st.container():
+                                st.markdown("### Transcription Result")
+                                st.markdown(f"**{result['transcription']}**")
+                                
+                                # Display metrics in columns
+                                col1, col2, col3 = st.columns(3)
+                                with col1:
+                                    st.metric("Duration", f"{result.get('duration', 0):.2f}s")
+                                with col2:
+                                    st.metric("Processing Time", f"{result['processing_time']:.2f}s")
+                                with col3:
+                                    st.metric("Real-time Factor", f"{result.get('real_time_factor', 0):.2f}x")
+                            
+                            # Add download buttons
+                            col1, col2 = st.columns(2)
+                            with col1:
+                                st.download_button(
+                                    label="Download Transcription",
+                                    data=result['transcription'],
+                                    file_name=f"transcription_{time_module.strftime('%Y-%m-%d %H:%M:%S')}.txt",
+                                    mime="text/plain"
+                                )
+                            with col2:
+                                # Convert audio bytes to downloadable format
+                                st.download_button(
+                                    label="Download Audio",
+                                    data=audio_bytes,
+                                    file_name=f"recording_{time_module.strftime('%Y-%m-%d %H:%M:%S')}.wav",
+                                    mime="audio/wav"
+                                )
+                            
+                            # Add to history with timestamp
+                            result["timestamp"] = time_module.strftime("%Y-%m-%d %H:%M:%S")
+                            result["source"] = "Recording"
+                            st.session_state.transcription_history.append(result)
+                    finally:
+                        # Clean up the temporary file
+                        if os.path.exists(tmp_file_path):
+                            os.unlink(tmp_file_path)
         
-        if audio_bytes and audio_recorded:
-            if st.button("Transcribe Recorded Audio"):
-                # Create a temporary file for the audio
-                with tempfile.NamedTemporaryFile(delete=False, suffix=".wav") as tmp_file:
-                    tmp_file.write(audio_bytes)
-                    tmp_file_path = tmp_file.name
-                
-                try:
-                    # Open the temp file for sending to API
-                    with open(tmp_file_path, "rb") as audio_file:
-                        result = transcribe_audio(audio_file, selected_model, selected_language)
-                    
-                    if result and result.get("success", False):
-                        # Display the transcription results
-                        st.subheader("Transcription Result")
-                        st.success("Transcription completed successfully!")
-                        
-                        # Display transcription in full width instead of columns
-                        st.markdown(f"**Text:** {result['transcription']}")
-                        st.markdown(f"**Model:** {result['model']}")
-                        st.markdown(f"**Language:** {result['language']}")
-                        st.markdown(f"**Processing Time:** {result['processing_time']:.2f} seconds")
-                        
-                        # Add download button
-                        st.download_button(
-                            label="Download Transcription",
-                            data=result['transcription'],
-                            file_name=f"transcription_{time_module.strftime('%Y-%m-%d %H:%M:%S')}.txt",
-                            mime="text/plain"
-                        )
-                        
-                        # Confidence gauge removed as per user request
-                        
-                        # Add to history with timestamp
-                        result["timestamp"] = time_module.strftime("%Y-%m-%d %H:%M:%S")
-                        result["source"] = "Recording"
-                        st.session_state.transcription_history.append(result)
-                finally:
-                    # Clean up the temporary file
-                    if os.path.exists(tmp_file_path):
-                        os.unlink(tmp_file_path)
+        with col2:
+            st.markdown("### Instructions")
+            st.markdown("""
+            1. Click the microphone button to start recording
+            2. Speak clearly in Vietnamese
+            3. Click again to stop recording
+            4. Review your recording
+            5. Click "Transcribe" to process
+            """)
     
     # Tab 3: Transcription History
     with tab3:

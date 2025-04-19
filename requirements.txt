@@ -35,3 +35,7 @@ pillow>=10.2.0
 requests>=2.31.0
 dotenv>=0.21.1
 
+# Add ONNX dependencies
+onnx>=1.15.0
+onnxruntime>=1.16.0
+
