@@ -38,4 +38,5 @@ dotenv>=0.21.1
 # Add ONNX dependencies
 onnx>=1.15.0
 onnxruntime>=1.16.0
+onnxruntime-extensions>=0.7.0  # For quantization and optimization
 
