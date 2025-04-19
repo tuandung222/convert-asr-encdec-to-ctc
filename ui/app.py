@@ -91,6 +91,11 @@ def transcribe_audio(audio_file, model, language):
             # Map 'text' to 'transcription' for UI consistency if needed
             if "text" in result and "transcription" not in result:
                 result["transcription"] = result["text"]
+                
+            # Post-process the transcription to remove the first two strange characters
+            if "transcription" in result and len(result["transcription"]) > 2:
+                result["transcription"] = result["transcription"][2:]
+                
             return result
         else:
             st.error(f"Error: {response.status_code} - {response.text}")
@@ -221,25 +226,21 @@ def main():
                     st.subheader("Transcription Result")
                     st.success("Transcription completed successfully!")
                     
-                    col1, col2 = st.columns([2, 1])
+                    # Display transcription in full width instead of columns
+                    st.markdown(f"**Text:** {result['transcription']}")
+                    st.markdown(f"**Model:** {result['model']}")
+                    st.markdown(f"**Language:** {result['language']}")
+                    st.markdown(f"**Processing Time:** {result['processing_time']:.2f} seconds")
                     
-                    with col1:
-                        st.markdown(f"**Text:** {result['transcription']}")
-                        st.markdown(f"**Model:** {result['model']}")
-                        st.markdown(f"**Language:** {result['language']}")
-                        st.markdown(f"**Processing Time:** {result['processing_time']:.2f} seconds")
-                        
-                        # Add download button
-                        st.download_button(
-                            label="Download Transcription",
-                            data=result['transcription'],
-                            file_name=f"transcription_{time_module.strftime('%Y-%m-%d %H:%M:%S')}.txt",
-                            mime="text/plain"
-                        )
+                    # Add download button
+                    st.download_button(
+                        label="Download Transcription",
+                        data=result['transcription'],
+                        file_name=f"transcription_{time_module.strftime('%Y-%m-%d %H:%M:%S')}.txt",
+                        mime="text/plain"
+                    )
                     
-                    with col2:
-                        # Display confidence gauge
-                        st.plotly_chart(create_confidence_chart(result["confidence"]))
+                    # Confidence gauge removed as per user request
                     
                     # Add to history with timestamp
                     result["timestamp"] = time_module.strftime("%Y-%m-%d %H:%M:%S")
@@ -331,25 +332,21 @@ def main():
                         st.subheader("Transcription Result")
                         st.success("Transcription completed successfully!")
                         
-                        col1, col2 = st.columns([2, 1])
+                        # Display transcription in full width instead of columns
+                        st.markdown(f"**Text:** {result['transcription']}")
+                        st.markdown(f"**Model:** {result['model']}")
+                        st.markdown(f"**Language:** {result['language']}")
+                        st.markdown(f"**Processing Time:** {result['processing_time']:.2f} seconds")
                         
-                        with col1:
-                            st.markdown(f"**Text:** {result['transcription']}")
-                            st.markdown(f"**Model:** {result['model']}")
-                            st.markdown(f"**Language:** {result['language']}")
-                            st.markdown(f"**Processing Time:** {result['processing_time']:.2f} seconds")
-                            
-                            # Add download button
-                            st.download_button(
-                                label="Download Transcription",
-                                data=result['transcription'],
-                                file_name=f"transcription_{time_module.strftime('%Y-%m-%d %H:%M:%S')}.txt",
-                                mime="text/plain"
-                            )
+                        # Add download button
+                        st.download_button(
+                            label="Download Transcription",
+                            data=result['transcription'],
+                            file_name=f"transcription_{time_module.strftime('%Y-%m-%d %H:%M:%S')}.txt",
+                            mime="text/plain"
+                        )
                         
-                        with col2:
-                            # Display confidence gauge
-                            st.plotly_chart(create_confidence_chart(result["confidence"]))
+                        # Confidence gauge removed as per user request
                         
                         # Add to history with timestamp
                         result["timestamp"] = time_module.strftime("%Y-%m-%d %H:%M:%S")
@@ -377,7 +374,7 @@ def main():
             
             # Display the history as a dataframe
             st.dataframe(
-                display_df[["timestamp", "model", "language", "confidence", "processing_time", "transcription"]],
+                display_df[["timestamp", "model", "language", "processing_time", "transcription"]],
                 use_container_width=True
             )
             
