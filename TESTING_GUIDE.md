@@ -86,11 +86,12 @@ services:
       - --web.enable-lifecycle
       - --web.enable-admin-api
       - --web.external-url=http://localhost:9090
-      - --alertmanager.url=http://alertmanager:9093
     restart: unless-stopped
     networks:
       - asr-network
     user: "nobody:nobody"
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
 
   # AlertManager for alert management
   alertmanager:
@@ -184,6 +185,9 @@ export PROMETHEUS_MULTIPROC_DIR=/tmp/prometheus-metrics
 
 # Create prometheus metrics directory
 mkdir -p /tmp/prometheus-metrics
+
+# Make sure psutil is installed for CPU and memory metrics
+pip install psutil
 
 # Run the FastAPI server
 cd api
@@ -281,6 +285,8 @@ curl -X POST http://localhost:8000/transcribe \
    - `up{job="asr-api"}` (should be 1 for the API)
    - `http_requests_total{job="asr-api"}`
    - `transcription_requests_total{job="asr-api"}`
+   - `process_cpu_percent` (for CPU usage of the API)
+   - `process_memory_usage_bytes{type="rss"}` (for memory usage of the API)
 
 **Expected Result:** Should see metrics being collected for the API.
 
@@ -290,7 +296,14 @@ curl -X POST http://localhost:8000/transcribe \
 1. Access Grafana at http://localhost:3000 (login with admin/F7aJw3kQ9pL5xYzR)
 2. Navigate to the "ASR Monitoring" folder
 3. Open the "Vietnamese ASR Dashboard"
-4. Check that API metrics are being displayed
+4. Check that API metrics are being displayed, including:
+   - API Request Rate
+   - API Response Time
+   - API CPU Usage
+   - API Memory Usage
+   - Transcription Metrics
+
+**Note:** The CPU and Memory gauges are now powered by process-level metrics from the psutil library, which works when running the API locally instead of in a Docker container.
 
 **Expected Result:** Dashboard should show real-time metrics from the locally running API.
 
@@ -436,7 +449,49 @@ test_model_performance("path/to/audio.wav")
 - Both models should produce similar transcription results
 - First-time ONNX run will be slower due to model conversion and quantization
 
-## 8. Cleanup
+## 8. Troubleshooting Common Issues
+
+### 8.1 Missing CPU and Memory Metrics
+
+If the CPU and Memory gauges in Grafana show "No data":
+
+1. Ensure `psutil` is installed in your environment:
+   ```bash
+   pip install psutil
+   ```
+
+2. Check the API logs for any errors related to metrics collection.
+
+3. Restart the API server and wait at least 15 seconds for the metrics to be collected.
+
+4. In Prometheus, check if the following metrics exist:
+   ```
+   process_cpu_percent
+   process_memory_usage_bytes
+   ```
+
+5. If using Docker containers, the monitoring configuration may need to be adjusted to use container metrics instead of process metrics.
+
+### 8.2 Model Loading Errors
+
+If you encounter model loading errors:
+
+1. Check if the model checkpoint exists at the expected location:
+   ```bash
+   ls -la checkpoints/
+   ```
+
+2. For ONNX model errors, check if the ONNX conversion completed successfully:
+   ```bash
+   ls -la checkpoints/onnx/
+   ```
+
+3. Try manually downloading the model checkpoint:
+   ```bash
+   python -c "from huggingface_hub import hf_hub_download; hf_hub_download(repo_id='tuandunghcmut/PhoWhisper-tiny-CTC', filename='best-val_wer=0.3986.ckpt', local_dir='./checkpoints')"
+   ```
+
+## 9. Cleanup
 
 When done testing:
 

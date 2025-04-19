@@ -27,6 +27,7 @@ plotly>=5.18.0
 prometheus-client
 opentelemetry-api
 opentelemetry-sdk
+psutil>=5.9.5  # For system metrics collection
 # opentelemetry-exporter-jaeger
 
 # Utilities

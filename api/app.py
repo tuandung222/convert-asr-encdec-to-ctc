@@ -4,6 +4,8 @@ import time
 import uuid
 import tempfile
 import logging
+import psutil
+import threading
 from datetime import datetime
 from typing import Dict, List, Optional, Any, Union
 
@@ -18,7 +20,7 @@ import torch
 
 # Add Prometheus metrics
 import prometheus_client
-from prometheus_client import multiprocess
+from prometheus_client import multiprocess, Gauge
 
 # Setup logging
 logging.basicConfig(
@@ -49,6 +51,76 @@ try:
 except ImportError:
     logger.error("Failed to import required modules. Make sure the project structure is correct.")
     raise
+
+# Add system metrics for CPU and memory in a way that avoids duplicate registration
+# Use a function to create metrics on demand rather than at module level
+def create_process_metrics():
+    """Create process metrics in a way that avoids duplicate registration"""
+    # Create metrics with unique registry to avoid duplicate registration errors
+    process_cpu_percent = Gauge(
+        'process_cpu_percent', 
+        'CPU utilization percentage of the API process',
+        ['pid'],
+        registry=None  # Don't auto-register
+    )
+    
+    process_memory_usage = Gauge(
+        'process_memory_usage_bytes',
+        'Memory usage of the API process in bytes',
+        ['pid', 'type'],  # type can be rss, vms, etc.
+        registry=None  # Don't auto-register
+    )
+    
+    process_open_fds = Gauge(
+        'process_open_file_descriptors',
+        'Number of open file descriptors',
+        ['pid'],
+        registry=None  # Don't auto-register
+    )
+    
+    # Register metrics if they don't exist yet
+    try:
+        prometheus_client.REGISTRY.register(process_cpu_percent)
+        prometheus_client.REGISTRY.register(process_memory_usage)
+        prometheus_client.REGISTRY.register(process_open_fds)
+        logger.info("Process metrics registered successfully")
+    except ValueError as e:
+        logger.info(f"Process metrics already registered: {e}")
+        # Get existing metrics from registry
+        process_cpu_percent = Gauge('process_cpu_percent', 'CPU utilization percentage', ['pid'])
+        process_memory_usage = Gauge('process_memory_usage_bytes', 'Memory usage in bytes', ['pid', 'type'])
+        process_open_fds = Gauge('process_open_file_descriptors', 'Number of file descriptors', ['pid'])
+    
+    return process_cpu_percent, process_memory_usage, process_open_fds
+
+# Background metrics collection
+def collect_process_metrics():
+    """Collect process metrics in the background"""
+    pid = os.getpid()
+    pid_str = str(pid)
+    process = psutil.Process(pid)
+    
+    # Create metrics only once
+    process_cpu_percent, process_memory_usage, process_open_fds = create_process_metrics()
+    
+    while True:
+        try:
+            # CPU percentage (interval=0.1 for a quick check)
+            cpu_percent = process.cpu_percent(interval=0.1)
+            process_cpu_percent.labels(pid=pid_str).set(cpu_percent)
+            
+            # Memory usage
+            memory_info = process.memory_info()
+            process_memory_usage.labels(pid=pid_str, type='rss').set(memory_info.rss)
+            process_memory_usage.labels(pid=pid_str, type='vms').set(memory_info.vms)
+            
+            # Open file descriptors
+            process_open_fds.labels(pid=pid_str).set(process.num_fds())
+        except Exception as e:
+            logger.error(f"Error collecting process metrics: {e}")
+        
+        # Sleep for 5 seconds before next collection
+        time.sleep(5)
 
 # Define supported models
 MODELS = {
@@ -119,8 +191,9 @@ model_cache = {}
 
 # Preload models configuration
 PRELOAD_MODELS = os.environ.get("PRELOAD_MODELS", "true").lower() == "true"
-MODEL_TYPES = os.environ.get("MODEL_TYPES", "pytorch").split(",")  # pytorch,onnx
-
+# MODEL_TYPES = os.environ.get("MODEL_TYPES", "pytorch").split(",")  # pytorch,onnx
+# MODEL_TYPES = os.environ.get("MODEL_TYPES", "onnx").split(",")  # pytorch,onnx
+MODEL_TYPES = ["pytorch", "onnx"]
 def get_model(model_name: str = DEFAULT_MODEL, model_type: str = None) -> ASRInferenceModel:
     """Get or load a model from the cache"""
     global model_cache
@@ -160,6 +233,11 @@ def get_model(model_name: str = DEFAULT_MODEL, model_type: str = None) -> ASRInf
 @app.on_event("startup")
 async def startup_event():
     """Preload models when application starts"""
+    # Start background metrics collection
+    metrics_thread = threading.Thread(target=collect_process_metrics, daemon=True)
+    metrics_thread.start()
+    logger.info("Started background metrics collection")
+    
     if PRELOAD_MODELS:
         logger.info("Preloading models on startup...")
         total_models = len(MODELS) * len(MODEL_TYPES)

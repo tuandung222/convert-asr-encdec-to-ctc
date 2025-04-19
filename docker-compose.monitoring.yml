@@ -18,11 +18,12 @@ services:
       - --web.enable-lifecycle
       - --web.enable-admin-api
       - --web.external-url=http://localhost:9090
-      - --alertmanager.url=http://alertmanager:9093
     restart: unless-stopped
     networks:
       - asr-network
     user: "nobody:nobody"
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
 
   # AlertManager for alert management
   alertmanager:

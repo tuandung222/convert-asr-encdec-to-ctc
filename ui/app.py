@@ -212,17 +212,6 @@ def main():
     if "show_metrics" not in st.session_state:
         st.session_state.show_metrics = False
     
-    # Show metrics dashboard if toggled
-    if st.session_state.show_metrics:
-        st.header("System Metrics")
-        st.markdown(f"[Open in Grafana]({GRAFANA_URL}/d/asr-dashboard/vietnamese-asr-dashboard?orgId=1&refresh=5s)")
-        
-        # Embed Grafana dashboard using iframe
-        components.iframe(
-            f"{GRAFANA_URL}/d/asr-dashboard/vietnamese-asr-dashboard?orgId=1&refresh=5s&kiosk",
-            height=600
-        )
-    
     # Main content area with tabs
     tab1, tab2, tab3, tab4 = st.tabs(["Upload Audio", "Record Audio", "History", "System Status"])
     
@@ -420,6 +409,17 @@ def main():
         if st.button("Show Metrics Dashboard", key="show_metrics_btn"):
             st.session_state.show_metrics = True
             st.rerun()
+    
+    # Show metrics dashboard if toggled
+    if st.session_state.show_metrics:
+        st.header("System Metrics")
+        st.markdown(f"[Open in Grafana]({GRAFANA_URL}/dashboards)")
+        
+        # Embed Grafana dashboard using iframe
+        components.iframe(
+            f"{GRAFANA_URL}/d/asr-dashboard/vietnamese-asr-dashboard?orgId=1&refresh=5s&kiosk",
+            height=600
+        )
     
     # Footer
     st.markdown("---")
