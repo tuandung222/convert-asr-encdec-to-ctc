@@ -41,6 +41,8 @@ notebooks/.ipynb_checkpoints/
 *.ckpt
 *.ckpt.*
 checkpoints/
+!checkpoints/onnx/
+!checkpoints/onnx/model_int8.onnx
 runs/
 wandb/
 lightning_logs/
@@ -123,9 +125,9 @@ multirun/
 models/
 saved_models/
 *.onnx
+!checkpoints/onnx/model_int8.onnx
 *.tflite
 *.pb
-*.tflite
 *.mlmodel
 
 # Temporary files
