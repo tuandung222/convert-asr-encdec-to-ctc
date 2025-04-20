@@ -14,4 +14,4 @@
 
 # Docker files
 Dockerfile text eol=lf
-*.Dockerfile text eol=lf 
+*.Dockerfile text eol=lf

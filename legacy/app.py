@@ -45,24 +45,24 @@
 #         raise
 
 # def process_audio(
-#     audio_path: str, 
+#     audio_path: str,
 #     model: ASRInferenceModel
 # ) -> Dict[str, Any]:
 #     """Process audio and return transcription results"""
 #     start_time = time.time()
-    
+
 #     try:
 #         # Transcribe audio
 #         result = model.transcribe(audio_path)
-        
+
 #         # Calculate processing time
 #         processing_time = time.time() - start_time
 #         real_time_factor = processing_time / (result.get("duration", 1))
-        
+
 #         # Add performance metrics
 #         result["processing_time"] = f"{processing_time:.2f}s"
 #         result["real_time_factor"] = f"{real_time_factor:.2f}x"
-        
+
 #         return result
 #     except Exception as e:
 #         logger.error(f"Error processing audio: {e}")
@@ -74,17 +74,17 @@
 #         }
 
 # def transcribe_audio(
-#     audio, 
+#     audio,
 #     model: ASRInferenceModel,
 #     language: str = DEFAULT_LANGUAGE
 # ) -> Tuple[str, Dict[str, Any]]:
 #     """Transcribe audio using the loaded model"""
 #     if audio is None:
 #         return "No audio provided. Please upload or record audio.", {}
-    
+
 #     # Save temporary audio file
 #     temp_path = "temp_audio.wav"
-    
+
 #     # Handle different audio input formats
 #     if isinstance(audio, tuple):  # From audio recorder
 #         sample_rate, audio_data = audio
@@ -93,10 +93,10 @@
 #         sf.write(temp_path, audio_data, sample_rate)
 #     else:  # From file upload
 #         temp_path = audio  # Use the uploaded file path directly
-    
+
 #     # Process with model
 #     result = process_audio(temp_path, model)
-    
+
 #     # Extract main transcription and detailed info
 #     transcription = result.get("text", "Error transcribing audio")
 #     details = {
@@ -104,11 +104,11 @@
 #         "Processing Time": result.get("processing_time", "N/A"),
 #         "Real-time Factor": result.get("real_time_factor", "N/A"),
 #     }
-    
+
 #     # Clean up temp file if needed
 #     if isinstance(audio, tuple) and os.path.exists(temp_path):
 #         os.remove(temp_path)
-    
+
 #     return transcription, details
 
 # def create_gradio_app(model: ASRInferenceModel) -> gr.Blocks:
@@ -116,24 +116,24 @@
 #     with gr.Blocks(title="Vietnamese ASR with PhoWhisper-CTC") as app:
 #         gr.Markdown("# Vietnamese Automatic Speech Recognition")
 #         gr.Markdown("## Using CTC-based PhoWhisper Model")
-        
+
 #         with gr.Row():
 #             with gr.Column(scale=1):
 #                 # Input methods
 #                 gr.Markdown("### Input Audio")
 #                 audio_input = gr.Audio(
-#                     sources=["upload", "microphone"], 
+#                     sources=["upload", "microphone"],
 #                     type="filepath",
 #                     label="Upload or Record Audio"
 #                 )
 #                 language = gr.Dropdown(
-#                     choices=["vi"], 
-#                     value="vi", 
+#                     choices=["vi"],
+#                     value="vi",
 #                     label="Language",
 #                     interactive=False
 #                 )
 #                 transcribe_btn = gr.Button("Transcribe", variant="primary")
-                
+
 #                 # Model info
 #                 with gr.Accordion("Model Information", open=False):
 #                     gr.Markdown(f"""
@@ -143,13 +143,13 @@
 #                     - **Device**: {model.device}
 #                     - **Source**: [HuggingFace](https://huggingface.co/{MODEL_NAME})
 #                     """)
-            
+
 #             with gr.Column(scale=1):
 #                 # Output
 #                 gr.Markdown("### Transcription Result")
 #                 text_output = gr.Textbox(label="Transcription", lines=5)
 #                 details_output = gr.JSON(label="Details")
-                
+
 #                 # Examples
 #                 with gr.Accordion("Examples", open=True):
 #                     gr.Examples(
@@ -162,18 +162,18 @@
 #                         fn=lambda a: transcribe_audio(a, model),
 #                         cache_examples=True,
 #                     )
-        
+
 #         # Footer
 #         gr.Markdown("---")
 #         gr.Markdown("Created by: Tuan Dung. [GitHub Repository](https://github.com/tuandung222/Convert-PhoWhisper-ASR-from-encdec-to-ctc)")
-        
+
 #         # Set up event handlers
 #         transcribe_btn.click(
 #             fn=transcribe_audio,
 #             inputs=[audio_input, model, language],
 #             outputs=[text_output, details_output],
 #         )
-    
+
 #     return app
 
 # def main():
@@ -188,13 +188,13 @@
 #     if args.device == "cuda" and not torch.cuda.is_available():
 #         logger.warning("CUDA requested but not available. Falling back to CPU.")
 #         args.device = "cpu"
-    
+
 #     # Create examples directory if it doesn't exist
 #     os.makedirs("examples", exist_ok=True)
-    
+
 #     # Load model
 #     model = load_model(args.device)
-    
+
 #     # Create and launch Gradio app
 #     app = create_gradio_app(model)
 #     app.launch(
@@ -205,4 +205,4 @@
 #     )
 
 # if __name__ == "__main__":
-#     main() 
+#     main()

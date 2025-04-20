@@ -3,27 +3,27 @@ services:
   prometheus:
     image: prom/prometheus:v2.44.0
     ports:
-      - "9090:9090"
+    - 9090:9090
     volumes:
-      - ../monitoring/prometheus:/etc/prometheus
-      - prometheus_data:/prometheus
+    - ../monitoring/prometheus:/etc/prometheus
+    - prometheus_data:/prometheus
     command:
-      - '--config.file=/etc/prometheus/prometheus.yml'
-      - '--storage.tsdb.path=/prometheus'
-      - '--web.console.libraries=/etc/prometheus/console_libraries'
-      - '--web.console.templates=/etc/prometheus/consoles'
-      - '--web.enable-lifecycle'
+    - --config.file=/etc/prometheus/prometheus.yml
+    - --storage.tsdb.path=/prometheus
+    - --web.console.libraries=/etc/prometheus/console_libraries
+    - --web.console.templates=/etc/prometheus/consoles
+    - --web.enable-lifecycle
     restart: unless-stopped
     networks:
-      - asr-network
-    user: "nobody:nobody"
+    - asr-network
+    user: nobody:nobody
     healthcheck:
-      test: ["CMD", "wget", "--spider", "-q", "http://localhost:9090/-/healthy"]
+      test: [CMD, wget, --spider, -q, http://localhost:9090/-/healthy]
       interval: 30s
       timeout: 10s
       retries: 3
     extra_hosts:
-      - "host.docker.internal:host-gateway"
+    - host.docker.internal:host-gateway
     deploy:
       resources:
         limits:
@@ -34,19 +34,19 @@ services:
   alertmanager:
     image: prom/alertmanager:v0.26.0
     ports:
-      - "9093:9093"
+    - 9093:9093
     volumes:
-      - ../monitoring/alertmanager:/etc/alertmanager
+    - ../monitoring/alertmanager:/etc/alertmanager
     command:
-      - --config.file=/etc/alertmanager/alertmanager.yml
-      - --storage.path=/alertmanager
-      - --web.external-url=http://localhost:9093
+    - --config.file=/etc/alertmanager/alertmanager.yml
+    - --storage.path=/alertmanager
+    - --web.external-url=http://localhost:9093
     restart: unless-stopped
     networks:
-      - asr-network
-    user: "nobody:nobody"
+    - asr-network
+    user: nobody:nobody
     healthcheck:
-      test: ["CMD", "wget", "--spider", "-q", "http://localhost:9093/-/healthy"]
+      test: [CMD, wget, --spider, -q, http://localhost:9093/-/healthy]
       interval: 30s
       timeout: 10s
       retries: 3
@@ -60,29 +60,29 @@ services:
   grafana:
     image: grafana/grafana:10.0.3
     ports:
-      - "3000:3000"
+    - 3000:3000
     volumes:
-      - grafana_data:/var/lib/grafana
-      - ../monitoring/grafana/dashboards:/var/lib/grafana/dashboards
-      - ../monitoring/grafana/provisioning:/etc/grafana/provisioning
+    - grafana_data:/var/lib/grafana
+    - ../monitoring/grafana/dashboards:/var/lib/grafana/dashboards
+    - ../monitoring/grafana/provisioning:/etc/grafana/provisioning
     environment:
-      - GF_SECURITY_ADMIN_USER=admin
-      - GF_SECURITY_ADMIN_PASSWORD=admin
-      - GF_USERS_ALLOW_SIGN_UP=false
-      - GF_SERVER_ROOT_URL=http://localhost:3000
-      - GF_SERVER_DOMAIN=localhost
-      - GF_INSTALL_PLUGINS=grafana-clock-panel,grafana-piechart-panel
-      - GF_AUTH_ANONYMOUS_ENABLED=false
-      - GF_FEATURE_TOGGLES_ENABLE=publicDashboards
-      - GF_UNIFIED_ALERTING_UI_DISABLE_REPROVISION=true
+    - GF_SECURITY_ADMIN_USER=admin
+    - GF_SECURITY_ADMIN_PASSWORD=admin
+    - GF_USERS_ALLOW_SIGN_UP=false
+    - GF_SERVER_ROOT_URL=http://localhost:3000
+    - GF_SERVER_DOMAIN=localhost
+    - GF_INSTALL_PLUGINS=grafana-clock-panel,grafana-piechart-panel
+    - GF_AUTH_ANONYMOUS_ENABLED=false
+    - GF_FEATURE_TOGGLES_ENABLE=publicDashboards
+    - GF_UNIFIED_ALERTING_UI_DISABLE_REPROVISION=true
     depends_on:
-      - prometheus
+    - prometheus
     restart: unless-stopped
     networks:
-      - asr-network
-    user: "472"
+    - asr-network
+    user: '472'
     healthcheck:
-      test: ["CMD", "wget", "--spider", "-q", "http://localhost:3000/api/health"]
+      test: [CMD, wget, --spider, -q, http://localhost:3000/api/health]
       interval: 30s
       timeout: 10s
       retries: 3
@@ -96,31 +96,31 @@ services:
   jaeger:
     image: jaegertracing/all-in-one:1.47
     ports:
-      - "6831:6831/udp"
-      - "6832:6832/udp"
-      - "5778:5778"
-      - "16686:16686"
-      - "4317:4317"
-      - "4318:4318"
-      - "14250:14250"
-      - "14268:14268"
-      - "14269:14269"
-      - "9411:9411"
+    - 6831:6831/udp
+    - 6832:6832/udp
+    - 5778:5778
+    - 16686:16686
+    - 4317:4317
+    - 4318:4318
+    - 14250:14250
+    - 14268:14268
+    - 14269:14269
+    - 9411:9411
     environment:
-      - COLLECTOR_ZIPKIN_HOST_PORT=:9411
-      - COLLECTOR_OTLP_ENABLED=true
-      - JAEGER_DISABLED=false
-      - SPAN_STORAGE_TYPE=memory
-      - METRICS_STORAGE_TYPE=prometheus
-      - PROMETHEUS_SERVER_URL=http://prometheus:9090
-      - SAMPLING_STRATEGIES_FILE=/etc/jaeger/sampling.json
+    - COLLECTOR_ZIPKIN_HOST_PORT=:9411
+    - COLLECTOR_OTLP_ENABLED=true
+    - JAEGER_DISABLED=false
+    - SPAN_STORAGE_TYPE=memory
+    - METRICS_STORAGE_TYPE=prometheus
+    - PROMETHEUS_SERVER_URL=http://prometheus:9090
+    - SAMPLING_STRATEGIES_FILE=/etc/jaeger/sampling.json
     volumes:
-      - ../monitoring/jaeger:/etc/jaeger
+    - ../monitoring/jaeger:/etc/jaeger
     restart: unless-stopped
     networks:
-      - asr-network
+    - asr-network
     healthcheck:
-      test: ["CMD", "wget", "--spider", "-q", "http://localhost:16686"]
+      test: [CMD, wget, --spider, -q, http://localhost:16686]
       interval: 30s
       timeout: 10s
       retries: 3
@@ -128,4 +128,4 @@ services:
       resources:
         limits:
           cpus: '0.5'
-          memory: 512M 
+          memory: 512M

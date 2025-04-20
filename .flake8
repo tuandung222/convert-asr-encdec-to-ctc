@@ -8,4 +8,4 @@ per-file-ignores =
     # Allow long lines in docstrings for better readability
     *.py:E501
     # Ignore missing docstrings in tests
-    tests/*:D100,D101,D102,D103,D104 
+    tests/*:D100,D101,D102,D103,D104

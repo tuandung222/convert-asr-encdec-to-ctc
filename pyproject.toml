@@ -1,7 +1,4 @@
 [tool.black]
-line-length = 100
-target-version = ['py310']
-include = '\.pyi?$'
 exclude = '''
 /(
     \.eggs
@@ -13,39 +10,54 @@ exclude = '''
   | _build
   | buck-out
   | build
+  | checkpoints
   | dist
   | venv
-  | checkpoints
 )/
 '''
+include = '\.pyi?$'
+line-length = 100
+target-version = ['py310']
 
 [tool.isort]
-profile = "black"
+include_trailing_comma = true
+known_first_party = [
+  "api",
+  "src",
+  "ui"
+]
+known_third_party = [
+  "torch",
+  "numpy",
+  "fastapi",
+  "streamlit",
+  "transformers",
+  "huggingface_hub",
+  "pydantic"
+]
 line_length = 100
 multi_line_output = 3
-include_trailing_comma = true
-known_first_party = ["api", "src", "ui"]
-known_third_party = ["torch", "numpy", "fastapi", "streamlit", "transformers", "huggingface_hub", "pydantic"]
+profile = "black"
 
 [tool.mypy]
+check_untyped_defs = true
+disallow_incomplete_defs = false
+disallow_untyped_decorators = false
+disallow_untyped_defs = false
+no_implicit_optional = true
 python_version = "3.10"
+strict_optional = true
 warn_return_any = true
 warn_unused_configs = true
-disallow_untyped_defs = false
-disallow_incomplete_defs = false
-check_untyped_defs = true
-disallow_untyped_decorators = false
-no_implicit_optional = true
-strict_optional = true
 
 [[tool.mypy.overrides]]
+ignore_missing_imports = true
 module = [
-    "torch.*",
-    "numpy.*",
-    "transformers.*",
-    "huggingface_hub.*",
-    "librosa.*",
-    "torchaudio.*",
-    "soundfile.*"
+  "torch.*",
+  "numpy.*",
+  "transformers.*",
+  "huggingface_hub.*",
+  "librosa.*",
+  "torchaudio.*",
+  "soundfile.*"
 ]
-ignore_missing_imports = true 

@@ -7,30 +7,30 @@ services:
       context: .
       dockerfile: api/Dockerfile
     ports:
-      - "8000:8000"
+    - 8000:8000
     volumes:
-      - ./src:/app/src
-      - ./api:/app/api
-      - ./checkpoints:/app/checkpoints
+    - ./src:/app/src
+    - ./api:/app/api
+    - ./checkpoints:/app/checkpoints
     environment:
-      - PORT=8000
-      - INFERENCE_DEVICE=cpu
-      - JAEGER_HOST=jaeger
-      - JAEGER_PORT=6831
-      - ENVIRONMENT=production
-      - PROMETHEUS_MULTIPROC_DIR=/tmp/prometheus-metrics
+    - PORT=8000
+    - INFERENCE_DEVICE=cpu
+    - JAEGER_HOST=jaeger
+    - JAEGER_PORT=6831
+    - ENVIRONMENT=production
+    - PROMETHEUS_MULTIPROC_DIR=/tmp/prometheus-metrics
     depends_on:
-      - jaeger
-      - prometheus
+    - jaeger
+    - prometheus
     healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
+      test: [CMD, curl, -f, http://localhost:8000/health]
       interval: 30s
       timeout: 10s
       retries: 3
       start_period: 40s
     restart: unless-stopped
     networks:
-      - asr-network
+    - asr-network
     deploy:
       resources:
         limits:
@@ -46,17 +46,17 @@ services:
       context: .
       dockerfile: ui/Dockerfile
     ports:
-      - "8501:8501"
+    - 8501:8501
     environment:
-      - API_URL=http://api:8000
+    - API_URL=http://api:8000
     depends_on:
-      - api
+    - api
     volumes:
-      - ./ui:/app
+    - ./ui:/app
     networks:
-      - asr-network
+    - asr-network
     healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:8501"]
+      test: [CMD, curl, -f, http://localhost:8501]
       interval: 30s
       timeout: 10s
       retries: 3
@@ -88,25 +88,25 @@ services:
   prometheus:
     image: prom/prometheus:v2.46.0
     ports:
-      - "9090:9090"
+    - 9090:9090
     volumes:
-      - ./monitoring/prometheus:/etc/prometheus
-      - prometheus_data:/prometheus
+    - ./monitoring/prometheus:/etc/prometheus
+    - prometheus_data:/prometheus
     command:
-      - --config.file=/etc/prometheus/prometheus.yml
-      - --storage.tsdb.path=/prometheus
-      - --storage.tsdb.retention.time=15d
-      - --web.console.libraries=/usr/share/prometheus/console_libraries
-      - --web.console.templates=/usr/share/prometheus/consoles
-      - --web.enable-lifecycle
-      - --web.enable-admin-api
-      - --web.external-url=http://localhost:9090
+    - --config.file=/etc/prometheus/prometheus.yml
+    - --storage.tsdb.path=/prometheus
+    - --storage.tsdb.retention.time=15d
+    - --web.console.libraries=/usr/share/prometheus/console_libraries
+    - --web.console.templates=/usr/share/prometheus/consoles
+    - --web.enable-lifecycle
+    - --web.enable-admin-api
+    - --web.external-url=http://localhost:9090
     restart: unless-stopped
     networks:
-      - asr-network
-    user: "nobody:nobody"
+    - asr-network
+    user: nobody:nobody
     healthcheck:
-      test: ["CMD", "wget", "--spider", "-q", "http://localhost:9090/-/healthy"]
+      test: [CMD, wget, --spider, -q, http://localhost:9090/-/healthy]
       interval: 30s
       timeout: 10s
       retries: 3
@@ -122,19 +122,19 @@ services:
   alertmanager:
     image: prom/alertmanager:v0.26.0
     ports:
-      - "9093:9093"
+    - 9093:9093
     volumes:
-      - ./monitoring/alertmanager:/etc/alertmanager
+    - ./monitoring/alertmanager:/etc/alertmanager
     command:
-      - --config.file=/etc/alertmanager/alertmanager.yml
-      - --storage.path=/alertmanager
-      - --web.external-url=http://localhost:9093
+    - --config.file=/etc/alertmanager/alertmanager.yml
+    - --storage.path=/alertmanager
+    - --web.external-url=http://localhost:9093
     restart: unless-stopped
     networks:
-      - asr-network
-    user: "nobody:nobody"
+    - asr-network
+    user: nobody:nobody
     healthcheck:
-      test: ["CMD", "wget", "--spider", "-q", "http://localhost:9093/-/healthy"]
+      test: [CMD, wget, --spider, -q, http://localhost:9093/-/healthy]
       interval: 30s
       timeout: 10s
       retries: 3
@@ -148,28 +148,28 @@ services:
   grafana:
     image: grafana/grafana:10.2.3
     ports:
-      - "3000:3000"
+    - 3000:3000
     volumes:
-      - ./monitoring/grafana/provisioning:/etc/grafana/provisioning
-      - grafana_data:/var/lib/grafana
+    - ./monitoring/grafana/provisioning:/etc/grafana/provisioning
+    - grafana_data:/var/lib/grafana
     environment:
-      - GF_SECURITY_ADMIN_USER=admin
-      - GF_SECURITY_ADMIN_PASSWORD=F7aJw3kQ9pL5xYzR
-      - GF_USERS_ALLOW_SIGN_UP=false
-      - GF_SERVER_ROOT_URL=http://localhost:3000
-      - GF_SERVER_DOMAIN=localhost
-      - GF_INSTALL_PLUGINS=grafana-clock-panel,grafana-piechart-panel
-      - GF_AUTH_ANONYMOUS_ENABLED=false
-      - GF_FEATURE_TOGGLES_ENABLE=publicDashboards
-      - GF_UNIFIED_ALERTING_UI_DISABLE_REPROVISION=true
+    - GF_SECURITY_ADMIN_USER=admin
+    - GF_SECURITY_ADMIN_PASSWORD=F7aJw3kQ9pL5xYzR
+    - GF_USERS_ALLOW_SIGN_UP=false
+    - GF_SERVER_ROOT_URL=http://localhost:3000
+    - GF_SERVER_DOMAIN=localhost
+    - GF_INSTALL_PLUGINS=grafana-clock-panel,grafana-piechart-panel
+    - GF_AUTH_ANONYMOUS_ENABLED=false
+    - GF_FEATURE_TOGGLES_ENABLE=publicDashboards
+    - GF_UNIFIED_ALERTING_UI_DISABLE_REPROVISION=true
     depends_on:
-      - prometheus
+    - prometheus
     restart: unless-stopped
     networks:
-      - asr-network
-    user: "472"
+    - asr-network
+    user: '472'
     healthcheck:
-      test: ["CMD", "wget", "--spider", "-q", "http://localhost:3000/api/health"]
+      test: [CMD, wget, --spider, -q, http://localhost:3000/api/health]
       interval: 30s
       timeout: 10s
       retries: 3
@@ -183,25 +183,25 @@ services:
   jaeger:
     image: jaegertracing/all-in-one:1.48
     ports:
-      - "6831:6831/udp"  # accept jaeger.thrift over compact thrift protocol
-      - "6832:6832/udp"  # accept jaeger.thrift over binary thrift protocol
-      - "16686:16686"    # UI port
-      - "14268:14268"    # HTTP Collector
+    - 6831:6831/udp      # accept jaeger.thrift over compact thrift protocol
+    - 6832:6832/udp      # accept jaeger.thrift over binary thrift protocol
+    - 16686:16686        # UI port
+    - 14268:14268        # HTTP Collector
     environment:
-      - COLLECTOR_ZIPKIN_HTTP_PORT=9411
-      - COLLECTOR_OTLP_ENABLED=true
-      - JAEGER_DISABLED=false
-      - SPAN_STORAGE_TYPE=memory
-      - METRICS_STORAGE_TYPE=prometheus
-      - PROMETHEUS_SERVER_URL=http://prometheus:9090
-      - SAMPLING_STRATEGIES_FILE=/etc/jaeger/sampling.json
+    - COLLECTOR_ZIPKIN_HTTP_PORT=9411
+    - COLLECTOR_OTLP_ENABLED=true
+    - JAEGER_DISABLED=false
+    - SPAN_STORAGE_TYPE=memory
+    - METRICS_STORAGE_TYPE=prometheus
+    - PROMETHEUS_SERVER_URL=http://prometheus:9090
+    - SAMPLING_STRATEGIES_FILE=/etc/jaeger/sampling.json
     volumes:
-      - ./monitoring/jaeger:/etc/jaeger
+    - ./monitoring/jaeger:/etc/jaeger
     restart: unless-stopped
     networks:
-      - asr-network
+    - asr-network
     healthcheck:
-      test: ["CMD", "wget", "--spider", "-q", "http://localhost:16686"]
+      test: [CMD, wget, --spider, -q, http://localhost:16686]
       interval: 30s
       timeout: 10s
       retries: 3
@@ -215,22 +215,22 @@ services:
   node-exporter:
     image: prom/node-exporter:v1.6.1
     volumes:
-      - /proc:/host/proc:ro
-      - /sys:/host/sys:ro
-      - /:/rootfs:ro
+    - /proc:/host/proc:ro
+    - /sys:/host/sys:ro
+    - /:/rootfs:ro
     command:
-      - '--path.procfs=/host/proc'
-      - '--path.sysfs=/host/sys'
-      - '--path.rootfs=/rootfs'
-      - '--collector.filesystem.ignored-mount-points=^/(sys|proc|dev|host|etc)($$|/)'
+    - --path.procfs=/host/proc
+    - --path.sysfs=/host/sys
+    - --path.rootfs=/rootfs
+    - --collector.filesystem.ignored-mount-points=^/(sys|proc|dev|host|etc)($$|/)
     restart: unless-stopped
     expose:
-      - 9100
+    - 9100
     networks:
-      - asr-network
-    user: "nobody:nobody"
+    - asr-network
+    user: nobody:nobody
     healthcheck:
-      test: ["CMD", "wget", "--spider", "-q", "http://localhost:9100/metrics"]
+      test: [CMD, wget, --spider, -q, http://localhost:9100/metrics]
       interval: 30s
       timeout: 10s
       retries: 3
@@ -244,18 +244,18 @@ services:
   cadvisor:
     image: gcr.io/cadvisor/cadvisor:v0.47.2
     volumes:
-      - /:/rootfs:ro
-      - /var/run:/var/run:ro
-      - /sys:/sys:ro
-      - /var/lib/docker/:/var/lib/docker:ro
-      - /dev/disk/:/dev/disk:ro
+    - /:/rootfs:ro
+    - /var/run:/var/run:ro
+    - /sys:/sys:ro
+    - /var/lib/docker/:/var/lib/docker:ro
+    - /dev/disk/:/dev/disk:ro
     ports:
-      - "8080:8080"
+    - 8080:8080
     restart: unless-stopped
     networks:
-      - asr-network
+    - asr-network
     healthcheck:
-      test: ["CMD", "wget", "--spider", "-q", "http://localhost:8080/healthz"]
+      test: [CMD, wget, --spider, -q, http://localhost:8080/healthz]
       interval: 30s
       timeout: 10s
       retries: 3
@@ -277,4 +277,4 @@ networks:
 
 secrets:
   grafana_admin_password:
-    file: ./secrets/grafana_admin_password.txt 
+    file: ./secrets/grafana_admin_password.txt

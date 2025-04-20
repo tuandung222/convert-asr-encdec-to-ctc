@@ -14,10 +14,7 @@ from pydub import AudioSegment
 
 # Set page config first
 st.set_page_config(
-    page_title="Vietnamese ASR",
-    page_icon="🎙️",
-    layout="wide",
-    initial_sidebar_state="expanded"
+    page_title="Vietnamese ASR", page_icon="🎙️", layout="wide", initial_sidebar_state="expanded"
 )
 
 # Load environment variables
@@ -27,6 +24,7 @@ load_dotenv()
 API_URL = os.getenv("API_URL", "http://localhost:8000")
 GRAFANA_URL = os.getenv("GRAFANA_URL", "http://localhost:3000")
 
+
 # Function to check API connection and fallback to host machine if needed
 def get_api_url():
     """
@@ -35,7 +33,7 @@ def get_api_url():
     Returns the working API URL.
     """
     global API_URL
-    
+
     # First try the configured API_URL
     try:
         response = requests.get(f"{API_URL}/health", timeout=3)
@@ -44,7 +42,7 @@ def get_api_url():
             return API_URL
     except requests.exceptions.RequestException:
         st.warning(f"⚠️ Cannot connect to {API_URL}, trying fallback...")
-    
+
     # Try fallback to host machine
     fallback_url = "http://host.docker.internal:8000"
     try:
@@ -55,9 +53,11 @@ def get_api_url():
             return fallback_url
     except requests.exceptions.RequestException:
         st.error("❌ Failed to connect to API. Please check if the API server is running.")
-    
+
     # If all attempts fail, return the original URL but show a warning
-    st.error(f"❌ Could not establish API connection. Using {API_URL} but functionality may be limited.")
+    st.error(
+        f"❌ Could not establish API connection. Using {API_URL} but functionality may be limited."
+    )
     return API_URL
 
 
@@ -136,19 +136,19 @@ def transcribe_audio(audio_file, model, language, model_type=None):
     try:
         # Display debug info
         st.write(f"Sending model={model}, language={language}, model_type={model_type} to API")
-        
+
         files = {"file": audio_file}
         data = {"model": model, "language": language}
         if model_type:
             data["model_type"] = model_type
-        
+
         with st.spinner("Transcribing audio..."):
             response = requests.post(f"{API_URL}/transcribe", files=files, data=data)
-        
+
         st.write(f"Response status: {response.status_code}")
         if response.status_code != 200:
             st.write(f"Response content: {response.text}")
-            
+
         if response.status_code == 200:
             result = response.json()
             # Add a success flag and default confidence for UI
@@ -158,11 +158,11 @@ def transcribe_audio(audio_file, model, language, model_type=None):
             # Map 'text' to 'transcription' for UI consistency if needed
             if "text" in result and "transcription" not in result:
                 result["transcription"] = result["text"]
-                
+
             # Post-process the transcription to remove the first two strange characters
             if "transcription" in result and len(result["transcription"]) > 2:
                 result["transcription"] = result["transcription"][2:]
-                
+
             return result
         else:
             st.error(f"Error: {response.status_code} - {response.text}")
@@ -175,11 +175,11 @@ def transcribe_audio(audio_file, model, language, model_type=None):
 def create_confidence_chart(confidence):
     fig = go.Figure(
         go.Indicator(
-        mode="gauge+number",
-        value=confidence * 100,
+            mode="gauge+number",
+            value=confidence * 100,
             title={"text": "Confidence"},
             domain={"x": [0, 1], "y": [0, 1]},
-        gauge={
+            gauge={
                 "axis": {"range": [0, 100]},
                 "bar": {"color": "darkblue"},
                 "steps": [
@@ -200,20 +200,20 @@ def handle_recording():
             recording_color="#e8b62c",
             neutral_color="#6aa36f",
             icon_name="microphone",
-            icon_size="2x"
+            icon_size="2x",
         )
         if audio_bytes:
             # Check audio length
             audio = AudioSegment.from_wav(io.BytesIO(audio_bytes))
             duration_seconds = len(audio) / 1000
-            
+
             if duration_seconds < 0.5:
                 st.warning("⚠️ Recording too short. Please record at least 0.5 seconds.")
                 return None
             if duration_seconds > 60:
                 st.warning("⚠️ Recording too long. Please keep it under 60 seconds.")
                 return None
-                
+
             return audio_bytes
     except Exception as e:
         st.error(f"Recording error: {str(e)}")
@@ -221,12 +221,8 @@ def handle_recording():
 
 
 def show_recording_steps(current_step):
-    steps = [
-        "Record your voice 🎙️",
-        "Review the recording 👂",
-        "Transcribe to text ✍️"
-    ]
-    
+    steps = ["Record your voice 🎙️", "Review the recording 👂", "Transcribe to text ✍️"]
+
     for i, step in enumerate(steps, 1):
         if i < current_step:
             st.markdown(f"✅ {i}. {step}")
@@ -238,14 +234,14 @@ def show_recording_steps(current_step):
 
 def main():
     st.title("🎙️ Vietnamese Automatic Speech Recognition")
-    
+
     # Initialize API connection
     global API_URL
     API_URL = get_api_url()
-    
+
     # Check API connection
     api_connected = check_api_status()
-    
+
     # Sidebar for settings
     with st.sidebar:
         st.header("API Connection")
@@ -254,81 +250,81 @@ def main():
         else:
             st.error("❌ Could not connect to API")
             st.info(f"Make sure the API is running at {API_URL}")
-        
+
         st.header("Settings")
-        
+
         # Model selection
         models = get_available_models()
-        
+
         # Format model objects for display
         def format_model_option(model):
             if isinstance(model, dict) and "id" in model:
                 return f"{model['name']} - {model.get('description', '')}"
             return model
-            
+
         # Create selectbox with formatted display
         model_display = st.selectbox("Select Model", models, format_func=format_model_option)
-        
+
         # Extract just the ID for API request
         if isinstance(model_display, dict) and "id" in model_display:
             selected_model = model_display["id"]
         else:
             selected_model = model_display
-        
+
         # Language selection
         languages = get_supported_languages()
         selected_language = st.selectbox(
-            "Select Language", 
+            "Select Language",
             languages,
             format_func=lambda x: {"vi": "Vietnamese", "en": "English", "auto": "Auto-detect"}[x],
         )
-        
+
         # Add metrics dashboard link
         st.header("Monitoring")
         if st.button("View Metrics Dashboard"):
             st.session_state.show_metrics = True
-        
+
         if st.button("Hide Metrics Dashboard"):
             st.session_state.show_metrics = False
-    
+
     # Initialize session state for transcription history and metrics toggle
     if "transcription_history" not in st.session_state:
         st.session_state.transcription_history = []
-    
+
     if "show_metrics" not in st.session_state:
         st.session_state.show_metrics = False
-    
+
     # Main content area with tabs
     tab1, tab2, tab3, tab4 = st.tabs(["Upload Audio", "Record Audio", "History", "System Status"])
-    
+
     # Tab 1: Upload Audio
     with tab1:
         st.header("Upload Audio File")
         uploaded_file = st.file_uploader(
             "Choose an audio file", type=["mp3", "wav", "m4a", "ogg", "flac"]
         )
-        
+
         if uploaded_file is not None:
             st.audio(uploaded_file, format="audio/wav")
-            
+
             if st.button("Transcribe Uploaded Audio"):
                 # Reset file position
                 uploaded_file.seek(0)
-                
+
                 # Process the transcription
                 result = transcribe_audio(uploaded_file, selected_model, selected_language)
-                
+
                 if result and result.get("success", False):
                     # Display the transcription results
                     st.subheader("Transcription Result")
                     st.success("Transcription completed successfully!")
-                    
+
                     # Display transcription in full width instead of columns
                     st.markdown(f"**Text:** {result['transcription']}")
                     st.markdown(f"**Model:** {result['model']}")
                     st.markdown(f"**Language:** {result['language']}")
                     st.markdown(f"**Processing Time:** {result['processing_time']:.2f} seconds")
-                    
+
                     # Add download button
                     st.download_button(
                         label="Download Transcription",
@@ -336,11 +332,11 @@ def main():
                         file_name=f"transcription_{time_module.strftime('%Y-%m-%d %H:%M:%S')}.txt",
                         mime="text/plain",
                     )
-                    
+
                     # Add to history with timestamp
                     result["timestamp"] = time_module.strftime("%Y-%m-%d %H:%M:%S")
                     st.session_state.transcription_history.append(result)
-    
+
     # Tab 2: Record Audio
     with tab2:
         st.header("Record Audio")
@@ -356,35 +352,35 @@ def main():
         with col1:
             # Show progress steps
             show_recording_steps(st.session_state.recording_step)
-            
+
             st.markdown("### 🎙️ Click the microphone to start/stop recording")
-            
+
             # Handle recording
             audio_bytes = handle_recording()
-            
+
             if audio_bytes:
                 st.session_state.current_recording = audio_bytes
                 st.session_state.recording_step = 2
-                
+
                 # Review section
                 st.markdown("### Review Your Recording")
                 st.audio(audio_bytes, format="audio/wav")
-                
+
                 col_trans, col_retry = st.columns(2)
                 with col_trans:
                     if st.button("🎯 Transcribe", key="transcribe_recording"):
                         st.session_state.recording_step = 3
-                        
+
                 # Create a temporary file for the audio
                 with tempfile.NamedTemporaryFile(delete=False, suffix=".wav") as tmp_file:
                     tmp_file.write(audio_bytes)
                     tmp_file_path = tmp_file.name
-                
+
                 try:
                     # Open the temp file for sending to API
                     with open(tmp_file_path, "rb") as audio_file:
                         result = transcribe_audio(audio_file, selected_model, selected_language)
-                    
+
                     if result and result.get("success", False):
                         # Display the transcription results in a styled container
                         st.success("✓ Transcription complete")
@@ -401,7 +397,9 @@ def main():
                             with col2:
                                 st.metric("Processing Time", f"{result['processing_time']:.2f}s")
                             with col3:
-                                st.metric("Real-time Factor", f"{result.get('real_time_factor', 0):.2f}x")
+                                st.metric(
+                                    "Real-time Factor", f"{result.get('real_time_factor', 0):.2f}x"
+                                )
 
                         # Add download buttons
                         col1, col2 = st.columns(2)
@@ -428,7 +426,7 @@ def main():
                     # Clean up the temporary file
                     if os.path.exists(tmp_file_path):
                         os.unlink(tmp_file_path)
-                
+
                 with col_retry:
                     if st.button("🔄 Record Again", key="record_again"):
                         st.session_state.current_recording = None
@@ -444,46 +442,46 @@ def main():
                 3. Click again to stop recording
                 4. Review your recording
                 5. Click "Transcribe" to process
-                
+
                 **Tips:**
                 - Keep recordings under 60 seconds
                 - Speak clearly and at a normal pace
                 - Minimize background noise
                 """
             )
-    
+
     # Tab 3: Transcription History
     with tab3:
         st.header("Transcription History")
-        
+
         if not st.session_state.transcription_history:
             st.info("No transcriptions yet. Upload or record audio to get started.")
         else:
             # Create a dataframe from the history
             history_df = pd.DataFrame(st.session_state.transcription_history)
-            
+
             # Format the dataframe for display
             display_df = history_df.copy()
             if "timestamp" in display_df.columns:
                 display_df = display_df.sort_values("timestamp", ascending=False)
-            
+
             # Display the history as a dataframe
             st.dataframe(
                 display_df[["timestamp", "model", "language", "processing_time", "transcription"]],
                 use_container_width=True,
             )
-            
+
             # Add clear history button
             if st.button("Clear History"):
                 st.session_state.transcription_history = []
                 st.rerun()
-    
+
     # Tab 4: System Status
     with tab4:
         st.header("System Status and Metrics")
-        
+
         col1, col2 = st.columns(2)
-        
+
         with col1:
             # API Status
             st.subheader("API Status")
@@ -500,7 +498,7 @@ def main():
                     st.error(f"❌ Cannot connect to API: {e}")
             else:
                 st.error("❌ API is not connected")
-        
+
         with col2:
             # Model Information
             st.subheader("Available Models")
@@ -514,15 +512,15 @@ def main():
                     st.error(f"❌ Could not retrieve model information")
             except Exception as e:
                 st.error(f"❌ Error getting model information: {e}")
-        
+
         # Link to metrics
         st.subheader("Detailed Metrics")
         st.info("View detailed system metrics and performance in the Grafana dashboard")
-        
+
         if st.button("Show Metrics Dashboard", key="show_metrics_btn"):
             st.session_state.show_metrics = True
             st.rerun()
-    
+
     # Show metrics dashboard if toggled
     if st.session_state.show_metrics:
         st.header("System Metrics")
@@ -542,4 +540,4 @@ def main():
 
 
 if __name__ == "__main__":
-    main() 
+    main()

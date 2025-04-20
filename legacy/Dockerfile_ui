@@ -2,7 +2,7 @@ FROM python:3.10-slim
 
 WORKDIR /app
 
-# Install system dependencies - combine into a single layer 
+# Install system dependencies - combine into a single layer
 RUN apt-get update && \
     apt-get install -y --no-install-recommends \
     ffmpeg \
@@ -27,4 +27,4 @@ ENV PYTHONUNBUFFERED=1 \
 
 # Run the Streamlit application
 ENTRYPOINT ["streamlit", "run"]
-CMD ["app.py", "--server.address=0.0.0.0"] 
+CMD ["app.py", "--server.address=0.0.0.0"]

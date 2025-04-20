@@ -86,4 +86,4 @@ kubectl describe pod -l app=asr-api -n asr
 ## Security
 
 - Ensure proper network policies are in place
-- Consider using Kubernetes secrets for sensitive configuration 
+- Consider using Kubernetes secrets for sensitive configuration

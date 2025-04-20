@@ -125,4 +125,4 @@ For production environments, consider:
 1. Setting stronger passwords for Grafana in a secrets file
 2. Enabling SSL/TLS for all services
 3. Using a container orchestration platform like Kubernetes
-4. Setting up proper backup for Prometheus and Grafana data volumes 
+4. Setting up proper backup for Prometheus and Grafana data volumes

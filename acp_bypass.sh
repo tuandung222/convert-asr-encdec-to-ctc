@@ -46,4 +46,4 @@ fi
 echo "Pushing to remote repository..."
 git push origin main
 
-echo "✅ Changes successfully added, committed, and pushed!" 
+echo "✅ Changes successfully added, committed, and pushed!"

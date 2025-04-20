@@ -1,0 +1,43 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: speech-ui
+  labels:
+    app: speech-ui
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: speech-ui
+  template:
+    metadata:
+      labels:
+        app: speech-ui
+    spec:
+      containers:
+      - name: speech-ui
+        image: tuandung12092002/asr-ui:latest
+        ports:
+        - containerPort: 8501
+        resources:
+          limits:
+            cpu: 500m
+            memory: 512Mi
+          requests:
+            cpu: 200m
+            memory: 256Mi
+        env:
+        - name: API_URL
+          value: http://speech-api-service:8000
+        livenessProbe:
+          httpGet:
+            path: /
+            port: 8501
+          initialDelaySeconds: 30
+          periodSeconds: 10
+        readinessProbe:
+          httpGet:
+            path: /
+            port: 8501
+          initialDelaySeconds: 5
+          periodSeconds: 5

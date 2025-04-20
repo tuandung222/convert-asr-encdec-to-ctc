@@ -1,0 +1,74 @@
+pipeline {
+    agent any
+
+    environment {
+        DOCKER_REGISTRY = 'your-registry.example.com'
+        IMAGE_NAME = 'phowhisper-ctc-asr'
+        IMAGE_TAG = "${env.BUILD_NUMBER}"
+    }
+
+    stages {
+        stage('Checkout') {
+            steps {
+                checkout scm
+            }
+        }
+
+        stage('Lint & Test') {
+            steps {
+                sh 'pip install -r requirements.txt'
+                sh 'pre-commit run --all-files'
+                sh 'pytest tests/'
+            }
+        }
+
+        stage('Build Docker Image') {
+            steps {
+                sh "docker build -t ${DOCKER_REGISTRY}/${IMAGE_NAME}:${IMAGE_TAG} -f Dockerfile ."
+                sh "docker tag ${DOCKER_REGISTRY}/${IMAGE_NAME}:${IMAGE_TAG} ${DOCKER_REGISTRY}/${IMAGE_NAME}:latest"
+            }
+        }
+
+        stage('Push Docker Image') {
+            steps {
+                withCredentials([usernamePassword(credentialsId: 'docker-registry-credentials', passwordVariable: 'DOCKER_PASSWORD', usernameVariable: 'DOCKER_USERNAME')]) {
+                    sh "docker login ${DOCKER_REGISTRY} -u ${DOCKER_USERNAME} -p ${DOCKER_PASSWORD}"
+                    sh "docker push ${DOCKER_REGISTRY}/${IMAGE_NAME}:${IMAGE_TAG}"
+                    sh "docker push ${DOCKER_REGISTRY}/${IMAGE_NAME}:latest"
+                }
+            }
+        }
+
+        stage('Deploy to Development') {
+            when {
+                branch 'develop'
+            }
+            steps {
+                sh './jenkins/scripts/deploy.sh development'
+            }
+        }
+
+        stage('Deploy to Production') {
+            when {
+                branch 'main'
+            }
+            steps {
+                input message: 'Confirm deployment to Production environment?'
+                sh './jenkins/scripts/deploy.sh production'
+            }
+        }
+    }
+
+    post {
+        always {
+            sh 'docker image prune -f'
+            cleanWs()
+        }
+        success {
+            echo 'Build and deployment successful!'
+        }
+        failure {
+            echo 'Build or deployment failed!'
+        }
+    }
+}

@@ -1,0 +1,14 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: speech-ui-service
+  labels:
+    app: speech-ui
+spec:
+  ports:
+  - port: 8501
+    targetPort: 8501
+    protocol: TCP
+    name: http
+  selector:
+    app: speech-ui

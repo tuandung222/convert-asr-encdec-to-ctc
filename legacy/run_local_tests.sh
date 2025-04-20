@@ -116,13 +116,13 @@ pip install requests matplotlib numpy selenium &> /dev/null
 if [[ "$RUN_API_TESTS" = true ]]; then
     echo -e "\n${GREEN}Running API tests...${NC}"
     python3 test_api_server.py --url "$API_URL" --audio-dir "$EXAMPLES_DIR" --output "$RESULTS_DIR/api_test_results.json"
-    
+
     if [[ $? -eq 0 ]]; then
         echo -e "${GREEN}API tests completed successfully${NC}"
     else
         echo -e "${YELLOW}API tests completed with errors${NC}"
     fi
-    
+
     echo "Results saved to $RESULTS_DIR/api_test_results.json"
 fi
 
@@ -130,35 +130,35 @@ fi
 if [[ "$RUN_UI_TESTS" = true ]]; then
     echo -e "\n${GREEN}Running UI tests...${NC}"
     echo -e "${YELLOW}Note: UI tests require Selenium and Chrome/Chromium${NC}"
-    
+
     python3 test_streamlit_ui.py --url "$UI_URL" --audio-dir "$EXAMPLES_DIR" --output "$RESULTS_DIR/ui_test_results.json"
-    
+
     if [[ $? -eq 0 ]]; then
         echo -e "${GREEN}UI tests completed successfully${NC}"
     else
         echo -e "${YELLOW}UI tests completed with errors${NC}"
     fi
-    
+
     echo "Results saved to $RESULTS_DIR/ui_test_results.json"
 fi
 
 # Run performance tests
 if [[ "$RUN_PERF_TESTS" = true ]]; then
     echo -e "\n${GREEN}Running performance tests...${NC}"
-    
+
     # Get the first audio file for performance testing
     if [[ ${#AUDIO_FILES[@]} -gt 0 ]]; then
         AUDIO_FILE="${AUDIO_FILES[0]}"
         echo "Using audio file: $AUDIO_FILE"
-        
+
         python3 test_performance.py --url "$API_URL" --audio-file "$AUDIO_FILE" --output "$RESULTS_DIR/performance_results.json" --graphs-dir "$PERF_RESULTS_DIR"
-        
+
         if [[ $? -eq 0 ]]; then
             echo -e "${GREEN}Performance tests completed successfully${NC}"
         else
             echo -e "${YELLOW}Performance tests completed with errors${NC}"
         fi
-        
+
         echo "Results saved to $RESULTS_DIR/performance_results.json"
         echo "Graphs saved to $PERF_RESULTS_DIR/"
     else
@@ -170,4 +170,4 @@ echo -e "\n${GREEN}All tests completed${NC}"
 echo "Test results are available in the $RESULTS_DIR directory"
 
 # Make the test scripts executable
-chmod +x test_api_server.py test_streamlit_ui.py test_performance.py 
+chmod +x test_api_server.py test_streamlit_ui.py test_performance.py

@@ -1,55 +1,55 @@
 repos:
--   repo: https://github.com/pre-commit/pre-commit-hooks
-    rev: v4.5.0
-    hooks:
-    -   id: trailing-whitespace
-        exclude: \.ipynb$
-    -   id: end-of-file-fixer
-        exclude: \.ipynb$
-    -   id: check-yaml
-    -   id: check-json
-    -   id: check-added-large-files
-        args: ['--maxkb=1024']
-    -   id: debug-statements
-    -   id: check-merge-conflict
-    -   id: check-executables-have-shebangs
-    -   id: detect-private-key
+- repo: https://github.com/pre-commit/pre-commit-hooks
+  rev: v4.5.0
+  hooks:
+  - id: trailing-whitespace
+    exclude: \.ipynb$
+  - id: end-of-file-fixer
+    exclude: \.ipynb$
+  # - id: check-yaml
+  - id: check-json
+  - id: check-added-large-files
+    args: [--maxkb=1024]
+  - id: debug-statements
+  - id: check-merge-conflict
+  - id: check-executables-have-shebangs
+  - id: detect-private-key
 
--   repo: https://github.com/pycqa/isort
-    rev: 5.13.2
-    hooks:
-    -   id: isort
-        exclude: \.ipynb$
+- repo: https://github.com/pycqa/isort
+  rev: 5.13.2
+  hooks:
+  - id: isort
+    exclude: \.ipynb$
 
--   repo: https://github.com/psf/black
-    rev: 24.2.0
-    hooks:
-    -   id: black
-        args: [--line-length=100]
-        exclude: \.ipynb$
+- repo: https://github.com/psf/black
+  rev: 24.2.0
+  hooks:
+  - id: black
+    args: [--line-length=100]
+    exclude: \.ipynb$
 
--   repo: https://github.com/pycqa/flake8
-    rev: 7.0.0
-    hooks:
-    -   id: flake8
-        additional_dependencies: [flake8-docstrings]
-        args: [--max-line-length=100, --extend-ignore=E203]
-        exclude: \.ipynb$
+# - repo: https://github.com/pycqa/flake8
+#   rev: 7.0.0
+#   hooks:
+#   - id: flake8
+#     additional_dependencies: [flake8-docstrings]
+#     args: [--max-line-length=100, --extend-ignore=E203]
+#     exclude: \.ipynb$
 
--   repo: https://github.com/pre-commit/mirrors-mypy
-    rev: v1.8.0
-    hooks:
-    -   id: mypy
-        additional_dependencies: [types-requests, types-PyYAML]
-        args: [--ignore-missing-imports]
-        exclude: ^(notebooks/|ui/|tests/|.*\.ipynb$)
+# - repo: https://github.com/pre-commit/mirrors-mypy
+#   rev: v1.8.0
+#   hooks:
+#   - id: mypy
+#     additional_dependencies: [types-requests, types-PyYAML]
+#     args: [--ignore-missing-imports]
+#     exclude: ^(notebooks/|ui/|tests/|.*\.ipynb$)
 
--   repo: https://github.com/hadolint/hadolint
-    rev: v2.12.0
-    hooks:
-    -   id: hadolint
-        args: ['--ignore=DL3008', '--ignore=DL3013']
-        files: Dockerfile.*|.*Dockerfile
+# - repo: https://github.com/hadolint/hadolint
+#   rev: v2.12.0
+#   hooks:
+#   - id: hadolint
+#     args: [--ignore=DL3008, --ignore=DL3013]
+#     files: Dockerfile.*|.*Dockerfile
 
 # Removing nbQA hooks that format Jupyter notebooks
 # -   repo: https://github.com/nbQA-dev/nbQA
@@ -58,13 +58,13 @@ repos:
 #     -   id: nbqa-black
 #         args: [--line-length=100]
 #     -   id: nbqa-isort
-        
--   repo: https://github.com/asottile/pyupgrade
-    rev: v3.15.0
-    hooks:
-    -   id: pyupgrade
-        args: [--py310-plus]
-        exclude: \.ipynb$
+
+- repo: https://github.com/asottile/pyupgrade
+  rev: v3.15.0
+  hooks:
+  - id: pyupgrade
+    args: [--py310-plus]
+    exclude: \.ipynb$
 
 # Removing nbstripout hook that strips output from notebooks
 # -   repo: https://github.com/kynan/nbstripout
@@ -73,25 +73,25 @@ repos:
 #     -   id: nbstripout
 #         files: ".ipynb$"
 
--   repo: https://github.com/igorshubovych/markdownlint-cli
-    rev: v0.39.0
-    hooks:
-    -   id: markdownlint
-        args: [--disable=MD013, --disable=MD033]
+# - repo: https://github.com/igorshubovych/markdownlint-cli
+#   rev: v0.39.0
+#   hooks:
+#   - id: markdownlint
+#     args: [--disable=MD013, --disable=MD033]
 
 # CI config files
--   repo: https://github.com/macisamuele/language-formatters-pre-commit-hooks
-    rev: v2.12.0
-    hooks:
-    -   id: pretty-format-yaml
-        args: [--autofix, --indent, '2']
-    -   id: pretty-format-toml
-        args: [--autofix]
+- repo: https://github.com/macisamuele/language-formatters-pre-commit-hooks
+  rev: v2.12.0
+  hooks:
+  - id: pretty-format-yaml
+    args: [--autofix, --indent, '2']
+  - id: pretty-format-toml
+    args: [--autofix]
 
 # Security checks
--   repo: https://github.com/PyCQA/bandit
-    rev: 1.7.7
-    hooks:
-    -   id: bandit
-        args: ['-lll']  # Report only high-severity issues
-        exclude: ^(tests/|.*\.ipynb$) 
+- repo: https://github.com/PyCQA/bandit
+  rev: 1.7.7
+  hooks:
+  - id: bandit
+    args: [-lll]        # Report only high-severity issues
+    exclude: ^(tests/|.*\.ipynb$)

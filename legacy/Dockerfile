@@ -1,5 +1,5 @@
 # DEPRECATED - DO NOT USE
-# 
+#
 # This file has been replaced by modular Dockerfiles in each service directory:
 # - api/Dockerfile
 # - ui/Dockerfile
@@ -35,4 +35,4 @@
 # EXPOSE 8000
 
 # # Command to run the application
-# CMD ["python", "-m", "api.app"] 
+# CMD ["python", "-m", "api.app"]

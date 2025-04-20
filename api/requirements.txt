@@ -35,4 +35,4 @@ requests>=2.31.0
 # isort>=5.13.2      # Import sorting
 # flake8>=7.0.0      # Linting
 # mypy>=1.8.0        # Type checking
-# bandit>=1.7.7      # Security checks 
+# bandit>=1.7.7      # Security checks

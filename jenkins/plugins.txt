@@ -1,0 +1,12 @@
+docker-workflow:latest
+blueocean:latest
+pipeline-utility-steps:latest
+git:latest
+github:latest
+credentials:latest
+credentials-binding:latest
+docker-build-step:latest
+kubernetes:latest
+workflow-aggregator:latest
+job-dsl:latest
+pipeline-stage-view:latest

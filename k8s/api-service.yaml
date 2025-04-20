@@ -5,15 +5,15 @@ metadata:
   labels:
     app: asr-api
   annotations:
-    prometheus.io/scrape: "true"
-    prometheus.io/port: "8000"
-    prometheus.io/path: "/metrics"
+    prometheus.io/scrape: 'true'
+    prometheus.io/port: '8000'
+    prometheus.io/path: /metrics
 spec:
   selector:
     app: asr-api
   ports:
-    - port: 8000
-      targetPort: 8000
-      protocol: TCP
-      name: http
-  type: ClusterIP 
+  - port: 8000
+    targetPort: 8000
+    protocol: TCP
+    name: http
+  type: ClusterIP

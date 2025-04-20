@@ -1,0 +1,45 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: speech-api
+  labels:
+    app: speech-api
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: speech-api
+  template:
+    metadata:
+      labels:
+        app: speech-api
+    spec:
+      containers:
+      - name: speech-api
+        image: tuandung12092002/asr-api:latest
+        ports:
+        - containerPort: 8000
+        resources:
+          limits:
+            cpu: '1'
+            memory: 1Gi
+          requests:
+            cpu: 500m
+            memory: 512Mi
+        env:
+        - name: PORT
+          value: '8000'
+        - name: INFERENCE_DEVICE
+          value: cpu
+        livenessProbe:
+          httpGet:
+            path: /health
+            port: 8000
+          initialDelaySeconds: 30
+          periodSeconds: 10
+        readinessProbe:
+          httpGet:
+            path: /health
+            port: 8000
+          initialDelaySeconds: 5
+          periodSeconds: 5

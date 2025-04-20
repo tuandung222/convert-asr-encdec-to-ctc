@@ -1,0 +1,33 @@
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+
+resources:
+- ../base/api-deployment.yaml
+- ../base/api-service.yaml
+- ../base/ui-deployment.yaml
+- ../base/ui-service.yaml
+- ingress.yaml
+- monitoring.yaml
+
+namespace: speech-processing-prod
+
+commonLabels:
+  environment: production
+
+replicas:
+- name: speech-api
+  count: 3
+- name: speech-ui
+  count: 2
+
+patches:
+- target:
+    kind: Deployment
+    name: speech-api
+  patch: |-
+    - op: replace
+      path: /spec/template/spec/containers/0/resources/limits/memory
+      value: 2Gi
+    - op: replace
+      path: /spec/template/spec/containers/0/resources/requests/memory
+      value: 1Gi
