@@ -14,6 +14,7 @@ from components import (
     display_api_status,
     display_history,
     display_model_info,
+    display_tracing_info,
     display_transcription_result,
     footer,
     header,
@@ -208,6 +209,10 @@ def system_status_tab(api_url, api_connected):
     with col2:
         # Model Information
         display_model_info(api_url)
+
+    # Display Jaeger tracing information
+    jaeger_url = os.getenv("JAEGER_URL", "http://localhost:16686")
+    display_tracing_info(jaeger_url)
 
     # Link to metrics
     st.subheader("Detailed Metrics")

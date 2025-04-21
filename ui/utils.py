@@ -13,6 +13,42 @@ DEFAULT_MODELS = ["phowhisper-tiny-ctc"]
 DEFAULT_LANGUAGES = ["vi", "en", "auto"]
 DEFAULT_MODEL_TYPES = ["pytorch", "onnx"]
 
+# Flag to enable/disable trace propagation
+ENABLE_TRACE_PROPAGATION = os.environ.get("ENABLE_TRACE_PROPAGATION", "true").lower() == "true"
+
+# Initialize trace propagation if enabled
+if ENABLE_TRACE_PROPAGATION:
+    try:
+        from opentelemetry import trace
+        from opentelemetry.trace.propagation.tracecontext import TraceContextTextMapPropagator
+        
+        # Global propagator
+        propagator = TraceContextTextMapPropagator()
+        
+        # Function to inject trace context into headers
+        def inject_trace_context(headers):
+            """Inject trace context into request headers for distributed tracing"""
+            if not headers:
+                headers = {}
+            
+            # Get current span and inject trace context
+            current_span = trace.get_current_span()
+            if current_span and hasattr(current_span, "get_span_context"):
+                # Carrier is our headers dict that will be mutated by inject
+                propagator.inject(carrier=headers)
+            
+            return headers
+    except ImportError:
+        # Fall back if OpenTelemetry is not installed
+        def inject_trace_context(headers):
+            """Dummy function when OpenTelemetry is not available"""
+            return headers or {}
+else:
+    # Dummy function when trace propagation is disabled
+    def inject_trace_context(headers):
+        """Dummy function when trace propagation is disabled"""
+        return headers or {}
+
 
 # API Communication Functions
 def get_api_url() -> str:
@@ -25,7 +61,9 @@ def get_api_url() -> str:
 
     # First try the configured API_URL
     try:
-        response = requests.get(f"{api_url}/health", timeout=3)
+        # Add trace context for distributed tracing
+        headers = inject_trace_context({})
+        response = requests.get(f"{api_url}/health", headers=headers, timeout=3)
         if response.status_code == 200:
             st.success(f"✅ Connected to API at {api_url}")
             return api_url
@@ -35,7 +73,9 @@ def get_api_url() -> str:
     # Try fallback to host machine
     fallback_url = "http://host.docker.internal:8000"
     try:
-        response = requests.get(f"{fallback_url}/health", timeout=3)
+        # Add trace context for distributed tracing
+        headers = inject_trace_context({})
+        response = requests.get(f"{fallback_url}/health", headers=headers, timeout=3)
         if response.status_code == 200:
             st.success(f"✅ Connected to API at {fallback_url}")
             return fallback_url
@@ -52,7 +92,9 @@ def get_api_url() -> str:
 def check_api_status(api_url: str) -> bool:
     """Check if the API is available and responding"""
     try:
-        response = requests.get(f"{api_url}/")
+        # Add trace context for distributed tracing
+        headers = inject_trace_context({})
+        response = requests.get(f"{api_url}/", headers=headers)
         return response.status_code == 200
     except:
         return False
@@ -61,7 +103,9 @@ def check_api_status(api_url: str) -> bool:
 def get_available_models(api_url: str) -> list[dict[str, Any]]:
     """Get list of available models from API"""
     try:
-        response = requests.get(f"{api_url}/models", timeout=10)
+        # Add trace context for distributed tracing
+        headers = inject_trace_context({})
+        response = requests.get(f"{api_url}/models", headers=headers, timeout=10)
         if response.status_code == 200:
             data = response.json()
             # Handle both cases - either a dictionary with 'models' key or direct list
@@ -83,7 +127,9 @@ def get_available_models(api_url: str) -> list[dict[str, Any]]:
 def get_supported_languages(api_url: str) -> list[str]:
     """Get list of supported languages from API"""
     try:
-        response = requests.get(f"{api_url}/languages", timeout=10)
+        # Add trace context for distributed tracing
+        headers = inject_trace_context({})
+        response = requests.get(f"{api_url}/languages", headers=headers, timeout=10)
         if response.status_code == 200:
             data = response.json()
             # Handle both cases - either a dictionary with 'languages' key or direct list
@@ -105,7 +151,9 @@ def get_supported_languages(api_url: str) -> list[str]:
 def get_model_types(api_url: str) -> list[str]:
     """Get list of available model types from API"""
     try:
-        response = requests.get(f"{api_url}/", timeout=10)
+        # Add trace context for distributed tracing
+        headers = inject_trace_context({})
+        response = requests.get(f"{api_url}/", headers=headers, timeout=10)
         if response.status_code == 200:
             data = response.json()
             # Check if MODEL_TYPES is in the response
@@ -131,8 +179,17 @@ def transcribe_audio(
         if model_type:
             data["model_type"] = model_type
 
+        # Add trace context for distributed tracing
+        headers = inject_trace_context({})
+
         with st.spinner("Transcribing audio..."):
-            response = requests.post(f"{api_url}/transcribe", files=files, data=data, timeout=120)
+            response = requests.post(
+                f"{api_url}/transcribe", 
+                files=files, 
+                data=data, 
+                headers=headers,
+                timeout=120
+            )
 
         if response.status_code == 200:
             result = response.json()
@@ -147,6 +204,10 @@ def transcribe_audio(
             # Post-process the transcription to remove the first two strange characters
             if "transcription" in result and len(result["transcription"]) > 2:
                 result["transcription"] = result["transcription"][2:]
+                
+            # Display trace ID if available
+            if "trace_id" in result and result["trace_id"]:
+                st.info(f"Trace ID: {result['trace_id']}")
 
             return result
         else:

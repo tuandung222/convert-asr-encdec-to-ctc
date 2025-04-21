@@ -104,6 +104,11 @@ def display_transcription_result(result: dict[str, Any], audio_bytes: bytes | No
                 st.markdown(f"**Timestamp:** {result['timestamp']}")
             if "model_type" in result:
                 st.markdown(f"**Model Type:** {result['model_type']}")
+            if "trace_id" in result and result["trace_id"]:
+                jaeger_url = os.environ.get("JAEGER_URL", "http://localhost:16686")
+                trace_id = result["trace_id"]
+                st.markdown(f"**Trace ID:** `{trace_id}`")
+                st.markdown(f"[View this trace in Jaeger]({jaeger_url}/trace/{trace_id})")
 
         # Add download buttons
         if audio_bytes:
@@ -238,6 +243,13 @@ def display_api_status(api_url: str, api_connected: bool) -> None:
                         st.metric("Version", health_data["version"])
                     if "models_loaded" in health_data:
                         st.metric("Models Loaded", health_data["models_loaded"])
+                    
+                # Show tracing status if available
+                if "tracing_enabled" in health_data:
+                    if health_data["tracing_enabled"]:
+                        st.success("✅ Distributed Tracing is enabled")
+                    else:
+                        st.warning("⚠️ Distributed Tracing is disabled")
 
                 # Show full health data in expandable section
                 with st.expander("Show detailed health information"):
@@ -249,6 +261,49 @@ def display_api_status(api_url: str, api_connected: bool) -> None:
     else:
         st.error("❌ API is not connected")
         st.info(f"Make sure the API is running at {api_url}")
+
+
+def display_tracing_info(jaeger_url: str) -> None:
+    """Display Jaeger tracing information"""
+    st.subheader("Distributed Tracing")
+    
+    # Check if Jaeger URL is defined
+    if not jaeger_url:
+        jaeger_url = os.environ.get("JAEGER_URL", "http://localhost:16686")
+    
+    # Add information about tracing
+    st.markdown("""
+    ### Distributed Tracing with Jaeger
+    
+    This application uses OpenTelemetry to capture distributed traces across the UI and API components.
+    Traces are exported to Jaeger, which provides a visualization interface for analyzing request flows.
+    
+    **Key benefits:**
+    - End-to-end visibility of request processing
+    - Identification of performance bottlenecks
+    - Debugging of errors across service boundaries
+    - Analysis of system behavior in real-time
+    """)
+    
+    # Add button to open Jaeger UI
+    if st.button("🔍 Open Jaeger UI"):
+        st.markdown(f"[Open Jaeger UI in new tab]({jaeger_url})")
+        st.components.iframe(jaeger_url, height=300)
+    
+    # Add a section about how to use trace IDs
+    with st.expander("How to use trace IDs"):
+        st.markdown("""
+        When you perform a transcription, a unique trace ID is generated and displayed in the result.
+        
+        To find a specific trace in Jaeger:
+        1. Open the Jaeger UI
+        2. Select the 'asr-api' service from the dropdown
+        3. Click 'Find Traces'
+        4. Enter the trace ID in the 'Tags' field using format: `trace_id=<your_trace_id>`
+        5. Click 'Find Traces' to locate your specific trace
+        
+        You can also explore traces by time range, service, operation, and duration.
+        """)
 
 
 def display_model_info(api_url: str) -> None:

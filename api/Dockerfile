@@ -20,8 +20,8 @@ ENV PATH="/opt/venv/bin:$PATH"
 
 # Install PyTorch CPU version first (better caching)
 RUN pip install --no-cache-dir \
-    torch==2.5.0+cpu \
-    torchaudio==2.5.0+cpu \
+    torch==2.2.1+cpu \
+    torchaudio==2.2.1+cpu \
     --index-url https://download.pytorch.org/whl/cpu
 
 # Copy and install other requirements
@@ -73,14 +73,19 @@ ENV PYTHONUNBUFFERED=1 \
     PYTHONDONTWRITEBYTECODE=1 \
     PORT=8000 \
     INFERENCE_DEVICE=cpu \
-    PROMETHEUS_MULTIPROC_DIR=/tmp/prometheus-metrics
+    PROMETHEUS_MULTIPROC_DIR=/tmp/prometheus-metrics \
+    # Tracing configuration
+    SERVICE_NAME=asr-api \
+    ENABLE_TRACING=true \
+    JAEGER_HOST=jaeger \
+    JAEGER_PORT=6831
 
 # Expose port
 EXPOSE 8000
 
 # Health check
-# HEALTHCHECK --interval=360s --timeout=60s --start-period=40s --retries=3 \
-#     CMD curl -f http://localhost:8000/health || exit 1
+HEALTHCHECK --interval=30s --timeout=10s --start-period=40s --retries=3 \
+    CMD curl -f http://localhost:8000/health || exit 1
 
 # Run the application
 CMD ["uvicorn", "api.app:app", "--host", "0.0.0.0", "--port", "8000"]

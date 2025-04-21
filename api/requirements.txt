@@ -18,6 +18,8 @@ numpy>=1.26.4
 prometheus-client
 opentelemetry-api
 opentelemetry-sdk
+opentelemetry-exporter-jaeger
+opentelemetry-instrumentation-fastapi
 psutil>=5.9.5  # For system metrics collection
 
 # ONNX Dependencies

@@ -16,3 +16,7 @@ soundfile>=0.12.1
 
 # Utilities
 python-dotenv>=1.0.0
+
+# Tracing
+opentelemetry-api>=1.21.0
+opentelemetry-sdk>=1.21.0
