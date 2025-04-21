@@ -22,28 +22,30 @@ if ENABLE_TRACE_PROPAGATION:
     try:
         from opentelemetry import trace
         from opentelemetry.trace.propagation.tracecontext import TraceContextTextMapPropagator
-        
+
         # Global propagator
         propagator = TraceContextTextMapPropagator()
-        
+
         # Function to inject trace context into headers
         def inject_trace_context(headers):
             """Inject trace context into request headers for distributed tracing"""
             if not headers:
                 headers = {}
-            
+
             # Get current span and inject trace context
             current_span = trace.get_current_span()
             if current_span and hasattr(current_span, "get_span_context"):
                 # Carrier is our headers dict that will be mutated by inject
                 propagator.inject(carrier=headers)
-            
+
             return headers
+
     except ImportError:
         # Fall back if OpenTelemetry is not installed
         def inject_trace_context(headers):
             """Dummy function when OpenTelemetry is not available"""
             return headers or {}
+
 else:
     # Dummy function when trace propagation is disabled
     def inject_trace_context(headers):
@@ -76,7 +78,9 @@ def get_api_url() -> str:
         try:
             # Add trace context for distributed tracing
             headers = inject_trace_context({})
-            response = requests.get("http://localhost:8000/health", headers=headers, timeout=DEFAULT_TIMEOUT)
+            response = requests.get(
+                "http://localhost:8000/health", headers=headers, timeout=DEFAULT_TIMEOUT
+            )
             if response.status_code == 200:
                 st.success("✅ Connected to API at http://localhost:8000")
                 return "http://localhost:8000"
@@ -87,7 +91,9 @@ def get_api_url() -> str:
     try:
         # Add trace context for distributed tracing
         headers = inject_trace_context({})
-        response = requests.get("http://host.docker.internal:8000/health", headers=headers, timeout=DEFAULT_TIMEOUT)
+        response = requests.get(
+            "http://host.docker.internal:8000/health", headers=headers, timeout=DEFAULT_TIMEOUT
+        )
         if response.status_code == 200:
             st.success("✅ Connected to API at http://host.docker.internal:8000")
             return "http://host.docker.internal:8000"
@@ -196,11 +202,11 @@ def transcribe_audio(
 
         with st.spinner("Transcribing audio..."):
             response = requests.post(
-                f"{api_url}/transcribe", 
-                files=files, 
-                data=data, 
+                f"{api_url}/transcribe",
+                files=files,
+                data=data,
                 headers=headers,
-                timeout=DEFAULT_TIMEOUT * 3  # Longer timeout for transcription
+                timeout=DEFAULT_TIMEOUT * 3,  # Longer timeout for transcription
             )
 
         if response.status_code == 200:
@@ -216,7 +222,7 @@ def transcribe_audio(
             # Post-process the transcription to remove the first two strange characters
             if "transcription" in result and len(result["transcription"]) > 2:
                 result["transcription"] = result["transcription"][2:]
-                
+
             # Display trace ID if available
             if "trace_id" in result and result["trace_id"]:
                 st.info(f"Trace ID: {result['trace_id']}")

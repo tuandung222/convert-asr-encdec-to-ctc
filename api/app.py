@@ -16,10 +16,6 @@ import uvicorn
 from fastapi import Depends, FastAPI, File, Form, HTTPException, UploadFile
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse, Response
-from prometheus_client import Gauge, multiprocess
-from pydantic import BaseModel
-from starlette.requests import Request
-from starlette.responses import Response
 
 # OpenTelemetry imports for distributed tracing
 from opentelemetry import trace
@@ -30,6 +26,10 @@ from opentelemetry.sdk.trace import TracerProvider
 from opentelemetry.sdk.trace.export import BatchSpanProcessor
 from opentelemetry.trace import Status, StatusCode
 from opentelemetry.trace.propagation.tracecontext import TraceContextTextMapPropagator
+from prometheus_client import Gauge, multiprocess
+from pydantic import BaseModel
+from starlette.requests import Request
+from starlette.responses import Response
 
 # Setup logging
 logging.basicConfig(
@@ -70,40 +70,42 @@ except ImportError:
 # Global tracer provider
 tracer_provider = None
 
+
 # Setup OpenTelemetry tracing
 def setup_tracing():
     """Configure OpenTelemetry with Jaeger exporter"""
     global tracer_provider
-    
+
     # Check if tracing is enabled
     tracing_enabled = os.environ.get("ENABLE_TRACING", "true").lower() == "true"
     if not tracing_enabled:
         logger.info("Distributed tracing is disabled")
         return None
-    
+
     # Configure Jaeger endpoint
     jaeger_host = os.environ.get("JAEGER_HOST", "jaeger")
     jaeger_port = int(os.environ.get("JAEGER_PORT", "6831"))
-    
+
     # Set up tracer provider with service name
     service_name = os.environ.get("SERVICE_NAME", "asr-api")
     resource = Resource.create({"service.name": service_name})
-    
+
     # Create and set the tracer provider
     tracer_provider = TracerProvider(resource=resource)
     trace.set_tracer_provider(tracer_provider)
-    
+
     # Create Jaeger exporter
     jaeger_exporter = JaegerExporter(
         agent_host_name=jaeger_host,
         agent_port=jaeger_port,
     )
-    
+
     # Add span processor to the tracer provider
     tracer_provider.add_span_processor(BatchSpanProcessor(jaeger_exporter))
-    
+
     logger.info(f"Configured Jaeger tracing - endpoint: {jaeger_host}:{jaeger_port}")
     return tracer_provider
+
 
 # Tracer for our app
 def get_tracer():
@@ -261,7 +263,7 @@ class TranscriptionResponse(BaseModel):
     language: str
     model: str
     timestamp: str
-    trace_id: Optional[str] = None
+    trace_id: str | None = None
 
 
 class ModelInfo(BaseModel):
@@ -312,10 +314,10 @@ MODEL_TYPES = ["pytorch", "onnx"]
 def get_model(model_name: str = DEFAULT_MODEL, model_type: str = None) -> ASRInferenceModel:
     """Get or load a model from the cache"""
     global model_cache
-    
+
     # Get tracer for span creation
     tracer = get_tracer()
-    
+
     # Create span context if tracing is enabled
     if tracer:
         with tracer.start_as_current_span("get_model") as span:
@@ -326,7 +328,9 @@ def get_model(model_name: str = DEFAULT_MODEL, model_type: str = None) -> ASRInf
         return _get_model_internal(model_name, model_type)
 
 
-def _get_model_internal(model_name: str = DEFAULT_MODEL, model_type: str = None) -> ASRInferenceModel:
+def _get_model_internal(
+    model_name: str = DEFAULT_MODEL, model_type: str = None
+) -> ASRInferenceModel:
     """Internal function to get or load a model from the cache"""
     global model_cache
 
@@ -344,7 +348,7 @@ def _get_model_internal(model_name: str = DEFAULT_MODEL, model_type: str = None)
         if hasattr(current_span, "is_recording") and current_span.is_recording():
             current_span.set_status(StatusCode.ERROR)
             current_span.record_exception(Exception(f"Model {model_name} not found"))
-        
+
         raise HTTPException(status_code=400, detail=f"Model {model_name} not found")
 
     # Use specified model_type or default from environment
@@ -369,13 +373,13 @@ def _get_model_internal(model_name: str = DEFAULT_MODEL, model_type: str = None)
                     current_span.set_attribute("model.loading", True)
                     current_span.set_attribute("model.path", model_path)
                     current_span.set_attribute("model.device", device)
-                
+
                 model_cache[cache_key] = create_asr_model(model_path, device, model_type=model_type)
-                
+
                 # Record successful model loading in span
                 if hasattr(current_span, "is_recording") and current_span.is_recording():
                     current_span.set_attribute("model.loaded", True)
-                
+
             logger.info(f"Model {model_name} loaded successfully")
         except Exception as e:
             # Record error in span if tracing enabled
@@ -383,7 +387,7 @@ def _get_model_internal(model_name: str = DEFAULT_MODEL, model_type: str = None)
             if hasattr(current_span, "is_recording") and current_span.is_recording():
                 current_span.set_status(StatusCode.ERROR)
                 current_span.record_exception(e)
-            
+
             logger.error(f"Error loading model {model_name}: {str(e)}")
             raise HTTPException(status_code=500, detail=f"Failed to load model: {str(e)}")
 
@@ -407,7 +411,7 @@ async def startup_event():
                 logger.info("Continuing without OpenTelemetry middleware")
         else:
             logger.info("⏩ Skipping OpenTelemetry middleware as requested by environment variable")
-    
+
     # Start background metrics collection
     metrics_thread = threading.Thread(target=collect_process_metrics, daemon=True)
     metrics_thread.start()
@@ -553,7 +557,7 @@ async def health_check(request: Request):
         "model_loaded": model_loaded,
         "time": datetime.now().isoformat(),
         "device": device,
-        "tracing_enabled": tracer_provider is not None
+        "tracing_enabled": tracer_provider is not None,
     }
 
 
@@ -591,11 +595,13 @@ async def transcribe_audio(
     tracer = get_tracer()
     current_span = trace.get_current_span()
     trace_id = None
-    
+
     # Extract trace context if present to link with other systems
-    if hasattr(current_span, "get_span_context") and hasattr(current_span.get_span_context(), "trace_id"):
+    if hasattr(current_span, "get_span_context") and hasattr(
+        current_span.get_span_context(), "trace_id"
+    ):
         trace_id = format(current_span.get_span_context().trace_id, "032x")
-    
+
     # Set span attributes if tracing is enabled
     if hasattr(current_span, "is_recording") and current_span.is_recording():
         current_span.set_attribute("request.id", request.state.request_id)
@@ -604,13 +610,13 @@ async def transcribe_audio(
         current_span.set_attribute("audio.language", language)
         if model_type:
             current_span.set_attribute("audio.model_type", model_type)
-    
+
     # Validate language
     if language not in LANGUAGES:
         if hasattr(current_span, "is_recording") and current_span.is_recording():
             current_span.set_status(StatusCode.ERROR)
             current_span.record_exception(Exception(f"Language {language} not supported"))
-        
+
         raise HTTPException(status_code=400, detail=f"Language {language} not supported")
 
     # Validate model
@@ -618,7 +624,7 @@ async def transcribe_audio(
         if hasattr(current_span, "is_recording") and current_span.is_recording():
             current_span.set_status(StatusCode.ERROR)
             current_span.record_exception(Exception(f"Model {model} not available"))
-            
+
         raise HTTPException(status_code=400, detail=f"Model {model} not available")
 
     # Validate model type if provided
@@ -626,7 +632,7 @@ async def transcribe_audio(
         if hasattr(current_span, "is_recording") and current_span.is_recording():
             current_span.set_status(StatusCode.ERROR)
             current_span.record_exception(Exception(f"Model type {model_type} not supported"))
-            
+
         raise HTTPException(
             status_code=400,
             detail=f"Model type {model_type} not supported. Available types: {', '.join(MODEL_TYPES)}",
@@ -639,7 +645,7 @@ async def transcribe_audio(
         temp_file_path = temp_file.name
         content = await file.read()
         temp_file.write(content)
-        
+
         # Record file size in span if tracing enabled
         if hasattr(current_span, "is_recording") and current_span.is_recording():
             current_span.set_attribute("audio.size_bytes", len(content))
@@ -670,11 +676,11 @@ async def transcribe_audio(
             with tracer.start_as_current_span("transcribe") as transcribe_span:
                 transcribe_span.set_attribute("audio.file", file.filename)
                 transcribe_span.set_attribute("audio.language", language)
-                
+
                 # Use the timer for transcription duration
                 with Timer(TRANSCRIPTION_DURATION, {"model": model, "language": language}):
                     result = asr_model.transcribe(temp_file_path)
-                    
+
                 # Add result attributes to span
                 transcribe_span.set_attribute("transcription.length", len(result.get("text", "")))
         else:
@@ -686,7 +692,7 @@ async def transcribe_audio(
 
         # Get duration from result or default to 1.0 to avoid division by zero
         audio_duration = max(1.0, result.get("duration", 1.0))
-        
+
         # Record audio duration in span if tracing enabled
         if hasattr(current_span, "is_recording") and current_span.is_recording():
             current_span.set_attribute("audio.duration_seconds", audio_duration)
@@ -701,7 +707,7 @@ async def transcribe_audio(
 
         # Calculate real-time factor safely
         real_time_factor = processing_time / max(1.0, audio_duration)
-        
+
         # Record real-time factor in span if tracing enabled
         if hasattr(current_span, "is_recording") and current_span.is_recording():
             current_span.set_attribute("processing.real_time_factor", real_time_factor)
@@ -716,7 +722,7 @@ async def transcribe_audio(
             "language": language,
             "model": model,
             "timestamp": datetime.now().isoformat(),
-            "trace_id": trace_id
+            "trace_id": trace_id,
         }
 
         # Log the transcription
@@ -728,7 +734,7 @@ async def transcribe_audio(
     except Exception as e:
         # Track transcription failure
         TRANSCRIPTIONS.labels(model=model, language=language, status="failure").inc()
-        
+
         # Record error in span if tracing enabled
         if hasattr(current_span, "is_recording") and current_span.is_recording():
             current_span.set_status(StatusCode.ERROR)

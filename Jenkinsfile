@@ -86,7 +86,7 @@ pipeline {
                 docker push ${DOCKER_IMAGE_UI}:${DOCKER_TAG}
                 docker push ${DOCKER_IMAGE_UI}:${DOCKER_LATEST_TAG}
                 """
-                
+
                 // Log build information
                 echo "Successfully pushed images to registry:"
                 echo "API: ${DOCKER_IMAGE_API}:${DOCKER_TAG}"

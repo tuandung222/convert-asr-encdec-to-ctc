@@ -4,38 +4,43 @@ on:
   push:
     branches: [main]
     paths:
-      - 'api/**'
-      - 'ui/**'
-      - 'src/**'
-      - 'docker/**'
-      - 'push_images.sh'
-      - '.github/workflows/docker-publish.yml'
+    - api/**
+    - ui/**
+    - src/**
+    - docker/**
+    - push_images.sh
+    - .github/workflows/docker-publish.yml
   workflow_dispatch:  # Allow manual triggering of this workflow
 
 jobs:
   build_and_push:
     runs-on: ubuntu-latest
-    
+
     steps:
-      - name: Checkout repository
-        uses: actions/checkout@v3
+    - name: Checkout repository
+      uses: actions/checkout@v3
 
-      - name: Set up Docker Buildx
-        uses: docker/setup-buildx-action@v2
+    - name: Set up Docker Buildx
+      uses: docker/setup-buildx-action@v2
 
-      - name: Login to DockerHub
-        uses: docker/login-action@v2
-        with:
-          username: tuandung12092002
-          password: ${{ secrets.DOCKERHUB_TOKEN }}
+    - name: Login to DockerHub
+      uses: docker/login-action@v2
+      with:
+        username: tuandung12092002
+        password: ${{ secrets.DOCKERHUB_TOKEN }}
 
-      - name: Make script executable
-        run: chmod +x ./push_images.sh
+    - name: Make script executable
+      run: chmod +x ./push_images.sh
 
-      - name: Update push_images.sh to skip Docker login
-        run: |
-          # Modify the script to skip the interactive Docker login as we already logged in using Actions
-          sed -i 's/docker login/echo "Already logged in via GitHub Actions"/' ./push_images.sh
+    - name: Create required directory structure
+      run: |
+        mkdir -p src/models src/utils
+        touch src/models/.gitkeep src/utils/.gitkeep
 
-      - name: Build and push images
-        run: ./push_images.sh
+    - name: Update push_images.sh to skip Docker login
+      run: |
+        # Modify the script to skip the interactive Docker login as we already logged in using Actions
+        sed -i 's/docker login/echo "Already logged in via GitHub Actions"/' ./push_images.sh
+
+    - name: Build and push images
+      run: ./push_images.sh

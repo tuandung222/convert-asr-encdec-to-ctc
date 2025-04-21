@@ -250,26 +250,26 @@ def setup_sidebar(api_url, api_connected):
         else:
             st.error("❌ Could not connect to API")
             st.info(f"Make sure the API is running at {api_url}")
-        
+
         # Model selection
         st.subheader("Model Settings")
         models = get_available_models(api_url)
-            
+
         # Create selectbox with formatted display
         model_display = st.selectbox(
-            "Select Model", 
+            "Select Model",
             models,
             format_func=format_model_option,
             help="Choose the ASR model for transcription",
         )
-        
+
         # Extract just the ID for API request
         selected_model = get_model_id(model_display)
-        
+
         # Language selection
         languages = get_supported_languages(api_url)
         selected_language = st.selectbox(
-            "Select Language", 
+            "Select Language",
             languages,
             format_func=lambda x: {
                 "vi": "Vietnamese 🇻🇳",
@@ -301,7 +301,7 @@ def setup_sidebar(api_url, api_connected):
         with col2:
             if st.button("Hide Metrics"):
                 st.session_state.show_metrics = False
-    
+
         # GitHub link
         st.markdown("---")
         st.markdown(
@@ -330,7 +330,7 @@ def main():
     tab1, tab2, tab3, tab4 = st.tabs(
         ["📤 Upload Audio", "🎙️ Record Audio", "📜 History", "⚙️ System Status"]
     )
-    
+
     # Tab contents
     with tab1:
         upload_tab(api_url, selected_model, selected_language)
@@ -353,4 +353,4 @@ def main():
 
 
 if __name__ == "__main__":
-    main() 
+    main()

@@ -48,4 +48,4 @@ docker rm $CONTAINER_ID
 echo -e "${GREEN}Test completed!${NC}"
 echo -e "If the test was successful, you can push the image to your registry with:"
 echo -e "docker tag asr-fastapi-server:test tuandung12092002/asr-fastapi-server:latest"
-echo -e "docker push tuandung12092002/asr-fastapi-server:latest" 
+echo -e "docker push tuandung12092002/asr-fastapi-server:latest"

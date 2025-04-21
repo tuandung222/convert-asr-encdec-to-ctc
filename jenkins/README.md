@@ -101,44 +101,44 @@ For MLOps projects, you may want to simplify the Jenkinsfile. Edit the provided 
 ```groovy
 pipeline {
     agent any
-    
+
     environment {
         DOCKER_HUB_CREDS = credentials('docker-hub-credentials')
         DOCKER_IMAGE_API = "tuandung12092002/asr-api"
         DOCKER_IMAGE_UI = "tuandung12092002/asr-ui"
         DOCKER_TAG = "${env.BUILD_NUMBER}"
     }
-    
+
     stages {
         stage('Checkout') {
             steps {
                 checkout scm
             }
         }
-        
+
         stage('Build Docker Images') {
             steps {
                 sh 'docker build -t ${DOCKER_IMAGE_API}:${DOCKER_TAG} -f Dockerfile .'
                 sh 'docker build -t ${DOCKER_IMAGE_UI}:${DOCKER_TAG} -f ui/Dockerfile ui/'
-                
+
                 sh 'docker tag ${DOCKER_IMAGE_API}:${DOCKER_TAG} ${DOCKER_IMAGE_API}:latest'
                 sh 'docker tag ${DOCKER_IMAGE_UI}:${DOCKER_TAG} ${DOCKER_IMAGE_UI}:latest'
             }
         }
-        
+
         stage('Push Docker Images') {
             steps {
                 sh 'echo $DOCKER_HUB_CREDS_PSW | docker login -u $DOCKER_HUB_CREDS_USR --password-stdin'
-                
+
                 sh 'docker push ${DOCKER_IMAGE_API}:${DOCKER_TAG}'
                 sh 'docker push ${DOCKER_IMAGE_API}:latest'
-                
+
                 sh 'docker push ${DOCKER_IMAGE_UI}:${DOCKER_TAG}'
                 sh 'docker push ${DOCKER_IMAGE_UI}:latest'
             }
         }
     }
-    
+
     post {
         always {
             sh 'docker logout'
