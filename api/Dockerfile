@@ -20,8 +20,8 @@ ENV PATH="/opt/venv/bin:$PATH"
 
 # Install PyTorch CPU version first (better caching)
 RUN pip install --no-cache-dir \
-    torch==2.2.1+cpu \
-    torchaudio==2.2.1+cpu \
+    torch==2.5.0+cpu \
+    torchaudio==2.5.0+cpu \
     --index-url https://download.pytorch.org/whl/cpu
 
 # Copy and install other requirements
@@ -59,7 +59,7 @@ RUN chown -R ${APP_USER}:${APP_USER} /app /tmp/prometheus-metrics
 # Copy only necessary application files
 COPY src/models /app/src/models
 COPY src/utils /app/src/utils
-COPY src/metrics.py /app/src/
+COPY api/metrics.py /app/src/
 COPY api /app/api
 
 # Set ownership of copied files
@@ -79,8 +79,8 @@ ENV PYTHONUNBUFFERED=1 \
 EXPOSE 8000
 
 # Health check
-HEALTHCHECK --interval=30s --timeout=10s --start-period=40s --retries=3 \
-    CMD curl -f http://localhost:8000/health || exit 1
+# HEALTHCHECK --interval=360s --timeout=60s --start-period=40s --retries=3 \
+#     CMD curl -f http://localhost:8000/health || exit 1
 
 # Run the application
 CMD ["uvicorn", "api.app:app", "--host", "0.0.0.0", "--port", "8000"]

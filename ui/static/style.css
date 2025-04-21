@@ -1,0 +1,256 @@
+/* Main container styling */
+.stApp {
+    max-width: 1200px;
+    margin: 0 auto;
+    font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+}
+
+/* Container padding adjustments */
+.main .block-container {
+    padding-top: 2rem;
+    padding-bottom: 2rem;
+}
+
+/* Header styling */
+h1, h2, h3 {
+    color: #1E3A8A;
+    font-weight: 600;
+}
+
+h1 {
+    font-size: 2.25rem;
+}
+
+h2 {
+    font-size: 1.75rem;
+}
+
+h3 {
+    font-size: 1.25rem;
+}
+
+/* Button styling */
+.stButton button {
+    border-radius: 20px;
+    padding: 2px 15px;
+    font-weight: 500;
+    transition: all 0.2s ease;
+}
+
+.stButton button:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+}
+
+.stDownloadButton button {
+    border-radius: 20px;
+    padding: 2px 15px;
+    font-weight: 500;
+}
+
+/* Custom header with gradient */
+.header-container {
+    background: linear-gradient(90deg, #1E3A8A 0%, #3B82F6 100%);
+    padding: 1.5rem;
+    border-radius: 10px;
+    color: white;
+    margin-bottom: 2rem;
+    box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+}
+
+.header-title {
+    font-size: 2.25rem;
+    font-weight: bold;
+    margin: 0;
+}
+
+.header-subtitle {
+    font-size: 1rem;
+    opacity: 0.8;
+    margin-top: 0.5rem;
+}
+
+/* Card styling */
+.card {
+    background-color: white;
+    border-radius: 10px;
+    padding: 1.5rem;
+    margin-bottom: 1rem;
+    box-shadow: 0 2px 5px rgba(0, 0, 0, 0.05);
+    border-left: 5px solid #3B82F6;
+}
+
+/* Custom tab styling */
+.stTabs [data-baseweb="tab"] {
+    font-size: 1rem;
+    font-weight: 500;
+}
+
+.stTabs [aria-selected="true"] {
+    color: #1E3A8A;
+}
+
+/* Footer styling */
+.footer {
+    text-align: center;
+    padding: 1rem;
+    font-size: 0.8rem;
+    color: #6B7280;
+}
+
+/* Transcription result styling */
+.transcription-result {
+    background-color: #f0f2f6;
+    padding: 20px;
+    border-radius: 10px;
+    border-left: 5px solid #4c8bff;
+    margin-bottom: 20px;
+    font-size: 18px;
+}
+
+/* Steps progression */
+.step {
+    display: flex;
+    align-items: center;
+    margin-bottom: 10px;
+}
+
+.step-number {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 30px;
+    height: 30px;
+    border-radius: 50%;
+    margin-right: 10px;
+    font-weight: bold;
+}
+
+.step-complete {
+    background-color: #10B981;
+    color: white;
+}
+
+.step-current {
+    background-color: #3B82F6;
+    color: white;
+}
+
+.step-pending {
+    background-color: #E5E7EB;
+    color: #6B7280;
+}
+
+/* Audio player styling */
+audio {
+    width: 100%;
+    border-radius: 10px;
+    background: #f0f2f6;
+}
+
+/* File uploader styling */
+.uploadedFile {
+    border: 2px dashed #3B82F6;
+    border-radius: 10px;
+    padding: 20px;
+    text-align: center;
+}
+
+/* Metrics and cards */
+.metric-card {
+    background: white;
+    border-radius: 8px;
+    padding: 15px;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+    text-align: center;
+}
+
+.metric-value {
+    font-size: 24px;
+    font-weight: bold;
+    color: #3B82F6;
+}
+
+.metric-label {
+    font-size: 14px;
+    color: #6B7280;
+}
+
+/* Dark mode variables */
+[data-theme="dark"] {
+    --background-color: #1E293B;
+    --text-color: #F1F5F9;
+    --card-background: #334155;
+    --border-color: #475569;
+    --primary-color: #60A5FA;
+    --hover-color: #3B82F6;
+}
+
+/* Responsive adjustments */
+@media (max-width: 768px) {
+    .header-title {
+        font-size: 1.75rem;
+    }
+
+    .header-subtitle {
+        font-size: 0.875rem;
+    }
+
+    .card {
+        padding: 1rem;
+    }
+}
+
+/* Animation */
+@keyframes fadeIn {
+    from { opacity: 0; }
+    to { opacity: 1; }
+}
+
+.animate-fade-in {
+    animation: fadeIn 0.5s ease-in-out;
+}
+
+/* Tooltip styling */
+.tooltip {
+    position: relative;
+    display: inline-block;
+    cursor: help;
+}
+
+.tooltip .tooltiptext {
+    visibility: hidden;
+    width: 200px;
+    background-color: #1E293B;
+    color: #fff;
+    text-align: center;
+    border-radius: 6px;
+    padding: 5px;
+    position: absolute;
+    z-index: 1;
+    bottom: 125%;
+    left: 50%;
+    margin-left: -100px;
+    opacity: 0;
+    transition: opacity 0.3s;
+}
+
+.tooltip:hover .tooltiptext {
+    visibility: visible;
+    opacity: 1;
+}
+
+/* Loading Spinner */
+.loading-spinner {
+    display: inline-block;
+    width: 50px;
+    height: 50px;
+    border: 5px solid rgba(59, 130, 246, 0.3);
+    border-radius: 50%;
+    border-top-color: #3B82F6;
+    animation: spin 1s ease-in-out infinite;
+}
+
+@keyframes spin {
+    to { transform: rotate(360deg); }
+}

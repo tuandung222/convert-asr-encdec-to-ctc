@@ -9,7 +9,7 @@ pipeline {
         DOCKER_HUB_CREDS = credentials('docker-hub-credentials')
         DOCKER_IMAGE_API = "tuandung12092002/asr-api"
         DOCKER_IMAGE_UI = "tuandung12092002/asr-ui"
-        DOCKER_IMAGE_GRADIO = "tuandung12092002/asr-gradio"
+        // DOCKER_IMAGE_GRADIO = "tuandung12092002/asr-gradio"
         DOCKER_TAG = "${env.BUILD_NUMBER}"
         K8S_CONFIG = credentials('k8s-config')
     }
@@ -58,8 +58,8 @@ pipeline {
                 sh 'docker tag ${DOCKER_IMAGE_UI}:${DOCKER_TAG} ${DOCKER_IMAGE_UI}:latest'
 
                 // Gradio image
-                sh 'docker build -t ${DOCKER_IMAGE_GRADIO}:${DOCKER_TAG} -f src/app/Dockerfile.gradio .'
-                sh 'docker tag ${DOCKER_IMAGE_GRADIO}:${DOCKER_TAG} ${DOCKER_IMAGE_GRADIO}:latest'
+                // sh 'docker build -t ${DOCKER_IMAGE_GRADIO}:${DOCKER_TAG} -f src/app/Dockerfile.gradio .'
+                // sh 'docker tag ${DOCKER_IMAGE_GRADIO}:${DOCKER_TAG} ${DOCKER_IMAGE_GRADIO}:latest'
             }
         }
 
@@ -76,8 +76,8 @@ pipeline {
                 sh 'docker push ${DOCKER_IMAGE_UI}:latest'
 
                 // Push Gradio images
-                sh 'docker push ${DOCKER_IMAGE_GRADIO}:${DOCKER_TAG}'
-                sh 'docker push ${DOCKER_IMAGE_GRADIO}:latest'
+                // sh 'docker push ${DOCKER_IMAGE_GRADIO}:${DOCKER_TAG}'
+                // sh 'docker push ${DOCKER_IMAGE_GRADIO}:latest'
             }
         }
 

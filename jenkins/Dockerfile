@@ -18,4 +18,5 @@ COPY plugins.txt /usr/share/jenkins/ref/plugins.txt
 RUN jenkins-plugin-cli -f /usr/share/jenkins/ref/plugins.txt
 
 # Configure Jenkins Seed Job if needed
-COPY jobs /usr/share/jenkins/ref/jobs/
+# Uncomment and create jobs directory when needed
+# COPY jobs /usr/share/jenkins/ref/jobs/

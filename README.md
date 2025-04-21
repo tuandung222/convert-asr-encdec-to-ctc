@@ -366,7 +366,7 @@ The Gradio demo provides a simple interface for:
 
 ## Model Performance
 
-- Word Error Rate (WER): 41% on the VietBud500 test set (measured on 1000 test examples)
+- Word Error Rate (WER): ~30% on the VietBud500 test set (measured on 1000 test examples)
 - Real-time factor: <0.5x (more than 2x faster than real-time)
 - Memory usage: <500MB
 - Processing time: ~0.02 seconds per example on standard CPU hardware

@@ -1,65 +1,75 @@
-# Vietnamese ASR UI Application
+# Vietnamese ASR - Streamlit UI
 
-A Streamlit-based user interface for Vietnamese Automatic Speech Recognition (ASR) that interacts with a FastAPI backend service.
+This directory contains the Streamlit user interface for the Vietnamese Automatic Speech Recognition system.
 
 ## Features
 
+- Modern, responsive UI for interacting with the ASR service
 - Upload audio files for transcription
-- Record audio directly in the browser
-- Select from multiple ASR models
-- Language selection (Vietnamese, English, or auto-detect)
-- Transcription history with analytics
-- Confidence score visualization
+- Record audio directly through the browser
+- View transcription history and download results
+- System status monitoring and integration with Grafana
 
-## Requirements
+## Structure
 
-- Python 3.8+
-- Streamlit
-- Dependencies listed in `requirements.txt`
+- `app.py` - Main application entry point
+- `utils.py` - Utility functions for API communication and data processing
+- `components.py` - UI components and layout functions
+- `static/` - Static assets (CSS, images)
 
-## Setup
+## Running the UI
 
-1. Clone this repository
-2. Install dependencies:
-   ```bash
-   pip install -r ui/requirements.txt
-   ```
-3. Make sure the FastAPI backend is running
+### Prerequisites
 
-## Environment Variables
+- Python 3.10+
+- API service running (default: http://localhost:8000)
 
-Create a `.env` file in the `ui` directory with the following variables:
-
-```
-API_URL=http://localhost:8000
-```
-
-## Running the Application
+### Installation
 
 ```bash
-cd ui
+# Install dependencies
+pip install -r requirements.txt
+
+# Run the Streamlit app
 streamlit run app.py
 ```
 
-By default, the application will be available at http://localhost:8501
+### Environment Variables
 
-## Docker Support
+- `API_URL`: URL of the FastAPI server (default: http://localhost:8000)
+- `GRAFANA_URL`: URL of the Grafana dashboard (default: http://localhost:3000)
 
-Build and run using Docker:
+## UI Improvements
 
-```bash
-docker build -t vietnamese-asr-ui -f ui/Dockerfile .
-docker run -p 8501:8501 vietnamese-asr-ui
-```
+The UI has been redesigned for improved user experience:
 
-## API Integration
+1. **Modular Code Structure**
+   - Separated into utils, components, and main app
+   - Better maintainability and organization
 
-The UI connects to the Vietnamese ASR API which should be running and accessible. By default, it looks for the API at http://localhost:8000, but you can configure this using the API_URL environment variable.
+2. **Enhanced UI/UX**
+   - Modern, clean design with custom CSS
+   - Improved layout and visual hierarchy
+   - Better feedback for user actions
 
-## Supported Audio Formats
+3. **New Features**
+   - Improved recording workflow
+   - Better history management with export functionality
+   - Enhanced system status display
+   - Theme customization options
 
-- MP3 (.mp3)
-- WAV (.wav)
-- M4A (.m4a)
-- OGG (.ogg)
-- FLAC (.flac)
+4. **Responsive Design**
+   - Adapts to different screen sizes
+   - Mobile-friendly interface
+
+## Integration
+
+The UI communicates with the API service using REST endpoints and displays results in a user-friendly format. It also integrates with Grafana for metrics visualization.
+
+## Screenshots
+
+(Screenshots will be added here)
+
+## License
+
+This project is licensed under the MIT License.

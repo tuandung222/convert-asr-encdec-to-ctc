@@ -43,8 +43,10 @@ RUN apt-get update && \
 
 WORKDIR /app
 
-# Copy only necessary files
+# Copy all UI files
 COPY ui/app.py .
+COPY ui/utils.py .
+COPY ui/components.py .
 COPY ui/static ./static
 
 # Set environment variables

@@ -3,6 +3,7 @@ apiVersion: v1
 kind: Namespace
 metadata:
   name: jenkins
+# This creates a dedicated namespace called "jenkins" to isolate Jenkins resources from other applications in the cluster
 
 ---
 apiVersion: v1
@@ -12,10 +13,11 @@ metadata:
   namespace: jenkins
 spec:
   accessModes:
-  - ReadWriteOnce
+  - ReadWriteOnce    # This means the volume can be mounted as read-write by a single node
   resources:
     requests:
-      storage: 10Gi
+      storage: 10Gi  # Requesting 10 gigabytes of persistent storage for Jenkins data
+# This PVC ensures Jenkins data persists even if the pod restarts
 
 ---
 apiVersion: apps/v1
@@ -24,36 +26,37 @@ metadata:
   name: jenkins
   namespace: jenkins
 spec:
-  replicas: 1
+  replicas: 1  # Running only one instance of Jenkins
   selector:
     matchLabels:
-      app: jenkins
+      app: jenkins  # Used to identify which pods are managed by this deployment
   template:
     metadata:
       labels:
-        app: jenkins
+        app: jenkins  # Label applied to the pods created by this template
     spec:
-      serviceAccountName: jenkins
+      serviceAccountName: jenkins  # The service account used by the pod for permissions
       containers:
       - name: jenkins
-        image: your-registry.example.com/speech-jenkins:latest
+        image: your-registry.example.com/speech-jenkins:latest    # The Docker image to use
         ports:
-        - containerPort: 8080
+        - containerPort: 8080      # Jenkins web interface port
           name: http
-        - containerPort: 50000
+        - containerPort: 50000      # Jenkins agent communication port
           name: jnlp
         volumeMounts:
-        - name: jenkins-home
+        - name: jenkins-home      # Mounting the persistent volume to store Jenkins data
           mountPath: /var/jenkins_home
-        - name: docker-sock
+        - name: docker-sock      # Mounting the Docker socket to allow Jenkins to use the host's Docker
           mountPath: /var/run/docker.sock
       volumes:
-      - name: jenkins-home
+      - name: jenkins-home    # Definition of the persistent volume for Jenkins data
         persistentVolumeClaim:
-          claimName: jenkins-pvc
-      - name: docker-sock
+          claimName: jenkins-pvc    # References the PVC defined above
+      - name: docker-sock    # Definition of the Docker socket volume
         hostPath:
-          path: /var/run/docker.sock
+          path: /var/run/docker.sock    # Path to the Docker socket on the host
+# This deployment defines how the Jenkins container should run in the cluster
 
 ---
 apiVersion: v1
@@ -62,17 +65,18 @@ metadata:
   name: jenkins
   namespace: jenkins
 spec:
-  type: NodePort
+  type: NodePort  # Makes the service accessible from outside the cluster via node IP and port
   ports:
-  - port: 8080
-    targetPort: 8080
-    nodePort: 30080
+  - port: 8080    # Port exposed within the cluster
+    targetPort: 8080    # Port on the container to forward to
+    nodePort: 30080    # External port on all nodes (accessible from outside)
     name: http
   - port: 50000
     targetPort: 50000
     name: jnlp
   selector:
-    app: jenkins
+    app: jenkins  # Routes traffic to pods with the label app=jenkins
+# This service exposes Jenkins to users and allows agents to connect
 
 ---
 apiVersion: v1
@@ -80,6 +84,7 @@ kind: ServiceAccount
 metadata:
   name: jenkins
   namespace: jenkins
+# This creates a service account named "jenkins" that the Jenkins pod will use for authentication
 
 ---
 apiVersion: rbac.authorization.k8s.io/v1
@@ -89,8 +94,9 @@ metadata:
 roleRef:
   apiGroup: rbac.authorization.k8s.io
   kind: ClusterRole
-  name: cluster-admin
+  name: cluster-admin  # Gives the jenkins service account full admin privileges
 subjects:
 - kind: ServiceAccount
   name: jenkins
   namespace: jenkins
+# This grants the Jenkins service account cluster-admin permissions, allowing it to manage resources across the cluster

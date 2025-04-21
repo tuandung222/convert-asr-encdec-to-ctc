@@ -41,8 +41,8 @@ sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 # Import the model
 try:
-    from src.metrics import MODEL_LOAD_FAILURES  # Add new metric for tracking model load failures
-    from src.metrics import (
+    from api.metrics import MODEL_LOAD_FAILURES  # Add new metric for tracking model load failures
+    from api.metrics import (
         AUDIO_DURATION,
         INFERENCE_IN_PROGRESS,
         MODEL_LOADING_TIME,
