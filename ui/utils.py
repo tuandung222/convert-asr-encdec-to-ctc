@@ -132,7 +132,7 @@ def transcribe_audio(
             data["model_type"] = model_type
 
         with st.spinner("Transcribing audio..."):
-            response = requests.post(f"{api_url}/transcribe", files=files, data=data, timeout=80)
+            response = requests.post(f"{api_url}/transcribe", files=files, data=data, timeout=120)
 
         if response.status_code == 200:
             result = response.json()

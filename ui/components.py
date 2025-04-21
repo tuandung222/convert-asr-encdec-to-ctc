@@ -76,14 +76,25 @@ def display_transcription_result(result: dict[str, Any], audio_bytes: bytes | No
             unsafe_allow_html=True,
         )
 
-        # Display metrics in columns with icons
-        col1, col2, col3 = st.columns(3)
-        with col1:
-            st.metric("⏱️ Duration", f"{result.get('duration', 0):.2f}s")
-        with col2:
-            st.metric("⚡ Processing Time", f"{result['processing_time']:.2f}s")
-        with col3:
-            st.metric("🚀 Real-time Factor", f"{result.get('real_time_factor', 0):.2f}x")
+        # Display metrics without nested columns
+        st.markdown("### Metrics")
+        metric_html = f"""
+        <div style="display: flex; justify-content: space-between; margin-bottom: 20px;">
+            <div style="text-align: center; flex: 1;">
+                <div style="font-size: 18px; font-weight: bold;">⏱️ Duration</div>
+                <div>{result.get('duration', 0):.2f}s</div>
+            </div>
+            <div style="text-align: center; flex: 1;">
+                <div style="font-size: 18px; font-weight: bold;">⚡ Processing Time</div>
+                <div>{result['processing_time']:.2f}s</div>
+            </div>
+            <div style="text-align: center; flex: 1;">
+                <div style="font-size: 18px; font-weight: bold;">🚀 Real-time Factor</div>
+                <div>{result.get('real_time_factor', 0):.2f}x</div>
+            </div>
+        </div>
+        """
+        st.markdown(metric_html, unsafe_allow_html=True)
 
         # Additional metadata
         with st.expander("Show Details"):
@@ -96,15 +107,16 @@ def display_transcription_result(result: dict[str, Any], audio_bytes: bytes | No
 
         # Add download buttons
         if audio_bytes:
-            col1, col2 = st.columns(2)
-            with col1:
+            st.markdown("### Download")
+            download_col1, download_col2 = st.columns(2)
+            with download_col1:
                 st.download_button(
                     label="📄 Download Transcription",
                     data=result["transcription"],
                     file_name=f"transcription_{time.strftime('%Y-%m-%d_%H-%M-%S')}.txt",
                     mime="text/plain",
                 )
-            with col2:
+            with download_col2:
                 st.download_button(
                     label="🔊 Download Audio",
                     data=audio_bytes,

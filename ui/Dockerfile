@@ -38,16 +38,23 @@ RUN apt-get update && \
     apt-get install -y --no-install-recommends \
     ffmpeg \
     libsndfile1 \
+    curl \
     && apt-get clean && \
     rm -rf /var/lib/apt/lists/*
 
 WORKDIR /app
+
+# Create non-root user
+RUN useradd -m -u ${APP_USER_UID} ${APP_USER}
 
 # Copy all UI files
 COPY ui/app.py .
 COPY ui/utils.py .
 COPY ui/components.py .
 COPY ui/static ./static
+
+# Set proper permissions
+RUN chown -R ${APP_USER}:${APP_USER} /app
 
 # Set environment variables
 ENV PYTHONUNBUFFERED=1 \
@@ -56,12 +63,11 @@ ENV PYTHONUNBUFFERED=1 \
     STREAMLIT_BROWSER_GATHER_USAGE_STATS=false \
     STREAMLIT_SERVER_ADDRESS=0.0.0.0
 
+# Switch to non-root user
+USER ${APP_USER}
+
 # Expose port
 EXPOSE 8501
-
-# Create non-root user
-RUN useradd -m -u ${APP_USER_UID} ${APP_USER}
-USER ${APP_USER}
 
 # Health check
 HEALTHCHECK --interval=30s --timeout=10s --start-period=5s --retries=3 \
