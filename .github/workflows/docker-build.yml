@@ -54,4 +54,4 @@ jobs:
 
     - name: Test Docker Compose configuration
       run: |
-        docker-compose -f docker/docker-compose.base.yml -f docker/docker-compose.api.yml -f docker/docker-compose.ui.yml config
+        docker compose -f docker/docker-compose.base.yml -f docker/docker-compose.api.yml -f docker/docker-compose.ui.yml config
