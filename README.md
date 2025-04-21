@@ -11,6 +11,7 @@ This project implements an Automatic Speech Recognition (ASR) system for Vietnam
 - Docker support for easy deployment
 - Monitoring and observability built-in
 - ONNX optimization with INT8 quantization for CPU
+- CI/CD with Jenkins and GitHub Actions
 
 ## Model Architecture
 
@@ -105,19 +106,15 @@ vietnamese-asr/
 │   ├── requirements.txt  # UI dependencies
 │   └── static/           # Static assets
 ├── monitoring/           # Monitoring configuration
-│   ├── grafana/          # Grafana dashboards and provisioning
-│   │   └── provisioning/ # Auto-provisioning configurations
-│   │       ├── dashboards/    # Dashboard configurations
-│   │       │   └── json/      # Dashboard JSON definitions
-│   │       └── datasources/   # Data source configurations
-│   └── prometheus/       # Prometheus configuration
-│       └── prometheus.yml     # Prometheus config file
+├── jenkins/              # Jenkins CI/CD configuration
+│   ├── Dockerfile        # Jenkins server with Docker capabilities
+│   ├── Jenkinsfile       # CI/CD pipeline definition
+│   ├── plugins.txt       # Required Jenkins plugins
+│   └── scripts/          # CI/CD automation scripts
+├── k8s/                  # Kubernetes deployment configs
 ├── examples/             # Example audio files
 ├── notebooks/            # Development notebooks
-│   ├── training.py       # Training code
-│   └── evaluation_after_training.py  # Evaluation code
 ├── scripts/              # Utility scripts
-│   └── app.py            # App runner
 ├── app.py                # Gradio app entry point
 ├── test_model.py         # Model testing script
 ├── requirements.txt      # Project dependencies
@@ -172,6 +169,7 @@ The project consists of several components:
 3. **Streamlit UI**: User-friendly interface for interacting with the API
 4. **Gradio Demo**: Simple demo interface for quick testing
 5. **Monitoring Stack**: Prometheus, Grafana, and Jaeger for observability
+6. **CI/CD Pipeline**: Jenkins and GitHub Actions for automated builds and deployments
 
 ## Getting Started
 
@@ -231,8 +229,6 @@ cd api
 uvicorn app:app --host 0.0.0.0 --port 8000
 ```
 
-
-
 The API will be available at http://localhost:8000
 
 #### Streamlit UI
@@ -262,6 +258,48 @@ The UI will be available at http://localhost:8501
 docker-compose -f docker/docker-compose.base.yml \
                -f docker/docker-compose.monitoring.yml up -d
 ```
+
+## CI/CD with Jenkins
+
+The project includes Jenkins configuration for automating Docker image builds and deployment. This is particularly useful for MLOps workflows where you want to automatically build and publish Docker images.
+
+### Setting Up Jenkins for Docker Automation
+
+1. **Quick Setup with Docker**:
+   ```bash
+   # Create a volume for Jenkins data
+   docker volume create jenkins_data
+
+   # Run Jenkins with Docker capabilities
+   docker run -d --name jenkins-server \
+     -p 8080:8080 -p 50000:50000 \
+     -v jenkins_data:/var/jenkins_home \
+     -v /var/run/docker.sock:/var/run/docker.sock \
+     --restart unless-stopped \
+     jenkins/jenkins:lts
+   ```
+
+2. **Install Required Plugins**:
+   - Get initial admin password: `docker exec jenkins-server cat /var/jenkins_home/secrets/initialAdminPassword`
+   - Complete setup wizard and install suggested plugins
+   - Install Docker Pipeline, Git Integration plugins
+
+3. **Configure Docker Hub Credentials**:
+   - Add credentials with ID "docker-hub-credentials"
+   - Enter your Docker Hub username and password/token
+
+4. **Create Pipeline Job**:
+   - Create a new Pipeline job
+   - Configure SCM to point to your repository
+   - Set Jenkinsfile path to `jenkins/Jenkinsfile`
+
+5. **Run the Pipeline**:
+   - The pipeline will:
+     - Build Docker images for API and UI
+     - Tag images with build number and "latest"
+     - Push images to Docker Hub
+
+For more detailed instructions, see `jenkins/README.md`.
 
 ## Monitoring and Metrics
 
@@ -376,6 +414,7 @@ The Gradio demo provides a simple interface for:
 - If the API server fails to start, check if the port is already in use
 - If the model fails to load, check if you have enough memory
 - If the transcription is poor, try using a different model or check the audio quality
+- Jenkins Docker issues: Ensure the Docker socket is correctly mounted and Jenkins has permissions
 
 ## License
 
