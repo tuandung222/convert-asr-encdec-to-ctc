@@ -36,19 +36,32 @@ if ! command -v helm &> /dev/null; then
     echo "See: https://helm.sh/docs/intro/install/"
     exit 1
 fi
-
 # Get Digital Ocean API token
 if [ -z "$DO_API_TOKEN" ]; then
-    read -p "Enter your Digital Ocean API token: " DO_API_TOKEN
+    # Try to load from .env file
+    if [ -f "../.env" ]; then
+        echo -e "${GREEN}Loading API token from .env file...${NC}"
+        DO_API_TOKEN=$(python -c "import os, re; f=open('../.env'); token=re.search(r'DO_API_TOKEN=(.*)', f.read()); print(token.group(1) if token else '')")
+    fi
+
+    if [ -f "./.env" ]; then
+        echo -e "${GREEN}Loading API token from .env file...${NC}"
+        DO_API_TOKEN=$(python -c "import os, re; f=open('./.env'); token=re.search(r'DO_API_TOKEN=(.*)', f.read()); print(token.group(1) if token else '')")
+    fi
+
+    # If still empty, ask for user input
     if [ -z "$DO_API_TOKEN" ]; then
-        echo -e "${RED}Error: API token cannot be empty.${NC}"
-        exit 1
+        read -p "Enter your Digital Ocean API token: " DO_API_TOKEN
+        if [ -z "$DO_API_TOKEN" ]; then
+            echo -e "${RED}Error: API token cannot be empty.${NC}"
+            exit 1
+        fi
     fi
 fi
 
 # Authenticate with Digital Ocean
 echo -e "\n${YELLOW}=== Authenticating with Digital Ocean ===${NC}"
-doctl auth init -t "$DO_API_TOKEN"
+doctl auth init --access-token string "$DO_API_TOKEN" --context ASR_DEPLOYMENT
 
 # Create terraform.tfvars
 echo -e "\n${YELLOW}=== Setting up Terraform ===${NC}"
