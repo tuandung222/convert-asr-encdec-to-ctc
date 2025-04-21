@@ -395,9 +395,18 @@ async def startup_event():
     """Preload models when application starts"""
     # Setup tracing
     if setup_tracing():
-        # Instrument FastAPI with OpenTelemetry
-        FastAPIInstrumentor.instrument_app(app, excluded_urls="metrics")
-        logger.info("✅ OpenTelemetry instrumentation enabled for FastAPI")
+        # Check if OpenTelemetry middleware should be skipped
+        skip_middleware = os.environ.get("SKIP_OTEL_MIDDLEWARE", "false").lower() == "true"
+        if not skip_middleware:
+            try:
+                # Instrument FastAPI with OpenTelemetry
+                FastAPIInstrumentor.instrument_app(app, excluded_urls="metrics")
+                logger.info("✅ OpenTelemetry instrumentation enabled for FastAPI")
+            except RuntimeError as e:
+                logger.warning(f"⚠️ Failed to add OpenTelemetry middleware: {e}")
+                logger.info("Continuing without OpenTelemetry middleware")
+        else:
+            logger.info("⏩ Skipping OpenTelemetry middleware as requested by environment variable")
     
     # Start background metrics collection
     metrics_thread = threading.Thread(target=collect_process_metrics, daemon=True)

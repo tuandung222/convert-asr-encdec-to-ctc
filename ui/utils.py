@@ -12,6 +12,7 @@ DEFAULT_API_URL = "http://localhost:8000"
 DEFAULT_MODELS = ["phowhisper-tiny-ctc"]
 DEFAULT_LANGUAGES = ["vi", "en", "auto"]
 DEFAULT_MODEL_TYPES = ["pytorch", "onnx"]
+DEFAULT_TIMEOUT = 10  # Increased timeout in seconds
 
 # Flag to enable/disable trace propagation
 ENABLE_TRACE_PROPAGATION = os.environ.get("ENABLE_TRACE_PROPAGATION", "true").lower() == "true"
@@ -63,22 +64,33 @@ def get_api_url() -> str:
     try:
         # Add trace context for distributed tracing
         headers = inject_trace_context({})
-        response = requests.get(f"{api_url}/health", headers=headers, timeout=3)
+        response = requests.get(f"{api_url}/health", headers=headers, timeout=DEFAULT_TIMEOUT)
         if response.status_code == 200:
             st.success(f"✅ Connected to API at {api_url}")
             return api_url
     except requests.exceptions.RequestException:
         st.warning(f"⚠️ Cannot connect to {api_url}, trying fallback...")
 
+    # Try fallback to localhost if API_URL is not localhost
+    if api_url != "http://localhost:8000":
+        try:
+            # Add trace context for distributed tracing
+            headers = inject_trace_context({})
+            response = requests.get("http://localhost:8000/health", headers=headers, timeout=DEFAULT_TIMEOUT)
+            if response.status_code == 200:
+                st.success("✅ Connected to API at http://localhost:8000")
+                return "http://localhost:8000"
+        except requests.exceptions.RequestException:
+            st.warning("⚠️ Cannot connect to localhost, trying host.docker.internal...")
+
     # Try fallback to host machine
-    fallback_url = "http://host.docker.internal:8000"
     try:
         # Add trace context for distributed tracing
         headers = inject_trace_context({})
-        response = requests.get(f"{fallback_url}/health", headers=headers, timeout=3)
+        response = requests.get("http://host.docker.internal:8000/health", headers=headers, timeout=DEFAULT_TIMEOUT)
         if response.status_code == 200:
-            st.success(f"✅ Connected to API at {fallback_url}")
-            return fallback_url
+            st.success("✅ Connected to API at http://host.docker.internal:8000")
+            return "http://host.docker.internal:8000"
     except requests.exceptions.RequestException:
         st.error("❌ Failed to connect to API. Please check if the API server is running.")
 
@@ -94,7 +106,7 @@ def check_api_status(api_url: str) -> bool:
     try:
         # Add trace context for distributed tracing
         headers = inject_trace_context({})
-        response = requests.get(f"{api_url}/", headers=headers)
+        response = requests.get(f"{api_url}/", headers=headers, timeout=DEFAULT_TIMEOUT)
         return response.status_code == 200
     except:
         return False
@@ -105,7 +117,7 @@ def get_available_models(api_url: str) -> list[dict[str, Any]]:
     try:
         # Add trace context for distributed tracing
         headers = inject_trace_context({})
-        response = requests.get(f"{api_url}/models", headers=headers, timeout=10)
+        response = requests.get(f"{api_url}/models", headers=headers, timeout=DEFAULT_TIMEOUT)
         if response.status_code == 200:
             data = response.json()
             # Handle both cases - either a dictionary with 'models' key or direct list
@@ -129,7 +141,7 @@ def get_supported_languages(api_url: str) -> list[str]:
     try:
         # Add trace context for distributed tracing
         headers = inject_trace_context({})
-        response = requests.get(f"{api_url}/languages", headers=headers, timeout=10)
+        response = requests.get(f"{api_url}/languages", headers=headers, timeout=DEFAULT_TIMEOUT)
         if response.status_code == 200:
             data = response.json()
             # Handle both cases - either a dictionary with 'languages' key or direct list
@@ -153,7 +165,7 @@ def get_model_types(api_url: str) -> list[str]:
     try:
         # Add trace context for distributed tracing
         headers = inject_trace_context({})
-        response = requests.get(f"{api_url}/", headers=headers, timeout=10)
+        response = requests.get(f"{api_url}/", headers=headers, timeout=DEFAULT_TIMEOUT)
         if response.status_code == 200:
             data = response.json()
             # Check if MODEL_TYPES is in the response
@@ -188,7 +200,7 @@ def transcribe_audio(
                 files=files, 
                 data=data, 
                 headers=headers,
-                timeout=120
+                timeout=DEFAULT_TIMEOUT * 3  # Longer timeout for transcription
             )
 
         if response.status_code == 200:

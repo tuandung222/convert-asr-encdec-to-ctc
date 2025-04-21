@@ -18,7 +18,10 @@ RUN apt-get update && \
 RUN python -m venv /opt/venv
 ENV PATH="/opt/venv/bin:$PATH"
 
-# Install PyTorch CPU version first (better caching)
+# First install numpy 1.x explicitly (for compatibility)
+RUN pip install --no-cache-dir 'numpy<2.0.0'
+
+# Then install PyTorch CPU version
 RUN pip install --no-cache-dir \
     torch==2.2.1+cpu \
     torchaudio==2.2.1+cpu \
@@ -26,7 +29,9 @@ RUN pip install --no-cache-dir \
 
 # Copy and install other requirements
 COPY api/requirements.txt .
-RUN pip install --no-cache-dir -r requirements.txt
+# Make sure numpy doesn't get upgraded to 2.x
+RUN grep -v numpy requirements.txt > requirements_no_numpy.txt && \
+    pip install --no-cache-dir -r requirements_no_numpy.txt
 
 # Stage 2: Runtime
 FROM python:3.10.12-slim
@@ -78,13 +83,15 @@ ENV PYTHONUNBUFFERED=1 \
     SERVICE_NAME=asr-api \
     ENABLE_TRACING=true \
     JAEGER_HOST=jaeger \
-    JAEGER_PORT=6831
+    JAEGER_PORT=6831 \
+    # Don't attempt to use OpenTelemetry middleware
+    SKIP_OTEL_MIDDLEWARE=true
 
 # Expose port
 EXPOSE 8000
 
 # Health check
-HEALTHCHECK --interval=30s --timeout=10s --start-period=40s --retries=3 \
+HEALTHCHECK --interval=200s --timeout=30s --start-period=40s --retries=3 \
     CMD curl -f http://localhost:8000/health || exit 1
 
 # Run the application

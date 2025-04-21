@@ -110,24 +110,32 @@ def display_transcription_result(result: dict[str, Any], audio_bytes: bytes | No
                 st.markdown(f"**Trace ID:** `{trace_id}`")
                 st.markdown(f"[View this trace in Jaeger]({jaeger_url}/trace/{trace_id})")
 
-        # Add download buttons
+        # Add download buttons - FIX: Use a horizontal layout without columns
         if audio_bytes:
             st.markdown("### Download")
-            download_col1, download_col2 = st.columns(2)
-            with download_col1:
-                st.download_button(
-                    label="📄 Download Transcription",
-                    data=result["transcription"],
-                    file_name=f"transcription_{time.strftime('%Y-%m-%d_%H-%M-%S')}.txt",
-                    mime="text/plain",
-                )
-            with download_col2:
-                st.download_button(
-                    label="🔊 Download Audio",
-                    data=audio_bytes,
-                    file_name=f"recording_{time.strftime('%Y-%m-%d_%H-%M-%S')}.wav",
-                    mime="audio/wav",
-                )
+            # Use HTML for a horizontal button layout instead of columns
+            st.markdown(
+                """
+                <div style="display: flex; gap: 10px;">
+                    <div style="flex: 1;"></div>
+                    <div style="flex: 1;"></div>
+                </div>
+                """,
+                unsafe_allow_html=True
+            )
+            # Place buttons directly without nested columns
+            st.download_button(
+                label="📄 Download Transcription",
+                data=result["transcription"],
+                file_name=f"transcription_{time.strftime('%Y-%m-%d_%H-%M-%S')}.txt",
+                mime="text/plain",
+            )
+            st.download_button(
+                label="🔊 Download Audio",
+                data=audio_bytes,
+                file_name=f"recording_{time.strftime('%Y-%m-%d_%H-%M-%S')}.wav",
+                mime="audio/wav",
+            )
         else:
             st.download_button(
                 label="📄 Download Transcription",
@@ -164,11 +172,11 @@ def process_recording(
 
 
 # History components
-def display_history(history: list[dict[str, Any]]) -> None:
+def display_history(history: list[dict[str, Any]]) -> bool:
     """Display transcription history as interactive table"""
     if not history:
         st.info("No transcriptions yet. Upload or record audio to get started.")
-        return
+        return False
 
     # Create a dataframe from the history
     history_df = pd.DataFrame(history)
@@ -404,6 +412,14 @@ def local_css() -> None:
         padding: 1rem;
         font-size: 0.8rem;
         color: #6B7280;
+    }
+    /* Button container styling */
+    .download-buttons-container {
+        display: flex;
+        gap: 10px;
+    }
+    .download-button {
+        flex: 1;
     }
     </style>
     """,

@@ -10,6 +10,6 @@ docker build -t speech-api:$TAG -f Dockerfile .
 docker build -t speech-ui:$TAG -f ui/Dockerfile ui/
 
 # Build Gradio image
-docker build -t speech-gradio:$TAG -f src/app/Dockerfile.gradio .
+# docker build -t speech-gradio:$TAG -f src/app/Dockerfile.gradio .
 
 echo "Successfully built images with tag $TAG"

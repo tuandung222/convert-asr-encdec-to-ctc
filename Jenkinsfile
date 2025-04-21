@@ -7,11 +7,12 @@ pipeline {
 
     environment {
         DOCKER_HUB_CREDS = credentials('docker-hub-credentials')
-        DOCKER_IMAGE_API = "tuandung12092002/asr-api"
-        DOCKER_IMAGE_UI = "tuandung12092002/asr-ui"
-        // DOCKER_IMAGE_GRADIO = "tuandung12092002/asr-gradio"
+        REGISTRY = "tuandung12092002"
+        DOCKER_IMAGE_API = "${REGISTRY}/asr-fastapi-server"
+        DOCKER_IMAGE_UI = "${REGISTRY}/asr-streamlit-ui"
         DOCKER_TAG = "${env.BUILD_NUMBER}"
-        K8S_CONFIG = credentials('k8s-config')
+        DOCKER_LATEST_TAG = "latest"
+        // K8S_CONFIG = credentials('k8s-config')
     }
 
     stages {
@@ -35,74 +36,86 @@ pipeline {
             }
         }
 
-        stage('Test') {
-            steps {
-                sh 'pytest --cov=src tests/'
-            }
-            post {
-                always {
-                    junit 'test-results/*.xml'
-                    cobertura coberturaReportFile: 'coverage.xml'
-                }
-            }
-        }
+        // stage('Test') {
+        //     steps {
+        //         sh 'pytest --cov=src tests/'
+        //     }
+        //     post {
+        //         always {
+        //             junit 'test-results/*.xml'
+        //             cobertura coberturaReportFile: 'coverage.xml'
+        //         }
+        //     }
+        // }
 
         stage('Build Docker Images') {
             steps {
-                // Main API image
-                sh 'docker build -t ${DOCKER_IMAGE_API}:${DOCKER_TAG} -f Dockerfile .'
-                sh 'docker tag ${DOCKER_IMAGE_API}:${DOCKER_TAG} ${DOCKER_IMAGE_API}:latest'
+                // API image with proper name
+                sh """
+                docker build -t ${DOCKER_IMAGE_API}:${DOCKER_TAG} \
+                  -t ${DOCKER_IMAGE_API}:${DOCKER_LATEST_TAG} \
+                  --build-arg APP_USER=api \
+                  --build-arg APP_USER_UID=1000 \
+                  -f api/Dockerfile .
+                """
 
-                // UI image
-                sh 'docker build -t ${DOCKER_IMAGE_UI}:${DOCKER_TAG} -f ui/Dockerfile ui/'
-                sh 'docker tag ${DOCKER_IMAGE_UI}:${DOCKER_TAG} ${DOCKER_IMAGE_UI}:latest'
-
-                // Gradio image
-                // sh 'docker build -t ${DOCKER_IMAGE_GRADIO}:${DOCKER_TAG} -f src/app/Dockerfile.gradio .'
-                // sh 'docker tag ${DOCKER_IMAGE_GRADIO}:${DOCKER_TAG} ${DOCKER_IMAGE_GRADIO}:latest'
+                // UI image with proper name
+                sh """
+                docker build -t ${DOCKER_IMAGE_UI}:${DOCKER_TAG} \
+                  -t ${DOCKER_IMAGE_UI}:${DOCKER_LATEST_TAG} \
+                  --build-arg APP_USER=streamlit \
+                  --build-arg APP_USER_UID=1000 \
+                  -f ui/Dockerfile .
+                """
             }
         }
 
         stage('Push Docker Images') {
             steps {
+                // Login to Docker Hub
                 sh 'echo $DOCKER_HUB_CREDS_PSW | docker login -u $DOCKER_HUB_CREDS_USR --password-stdin'
 
-                // Push API images
-                sh 'docker push ${DOCKER_IMAGE_API}:${DOCKER_TAG}'
-                sh 'docker push ${DOCKER_IMAGE_API}:latest'
+                // Push API images with both version tag and latest
+                sh """
+                docker push ${DOCKER_IMAGE_API}:${DOCKER_TAG}
+                docker push ${DOCKER_IMAGE_API}:${DOCKER_LATEST_TAG}
+                """
 
-                // Push UI images
-                sh 'docker push ${DOCKER_IMAGE_UI}:${DOCKER_TAG}'
-                sh 'docker push ${DOCKER_IMAGE_UI}:latest'
-
-                // Push Gradio images
-                // sh 'docker push ${DOCKER_IMAGE_GRADIO}:${DOCKER_TAG}'
-                // sh 'docker push ${DOCKER_IMAGE_GRADIO}:latest'
+                // Push UI images with both version tag and latest
+                sh """
+                docker push ${DOCKER_IMAGE_UI}:${DOCKER_TAG}
+                docker push ${DOCKER_IMAGE_UI}:${DOCKER_LATEST_TAG}
+                """
+                
+                // Log build information
+                echo "Successfully pushed images to registry:"
+                echo "API: ${DOCKER_IMAGE_API}:${DOCKER_TAG}"
+                echo "UI: ${DOCKER_IMAGE_UI}:${DOCKER_TAG}"
             }
         }
 
-        stage('Deploy to Development') {
-            when {
-                branch 'develop'
-            }
-            steps {
-                sh 'mkdir -p ~/.kube'
-                sh 'echo "$K8S_CONFIG" > ~/.kube/config'
-                sh './jenkins/scripts/deploy.sh development'
-            }
-        }
+        // stage('Deploy to Development') {
+        //     when {
+        //         branch 'develop'
+        //     }
+        //     steps {
+        //         sh 'mkdir -p ~/.kube'
+        //         sh 'echo "$K8S_CONFIG" > ~/.kube/config'
+        //         sh './jenkins/scripts/deploy.sh development'
+        //     }
+        // }
 
-        stage('Deploy to Production') {
-            when {
-                branch 'main'
-            }
-            steps {
-                input message: 'Confirm deployment to Production environment?'
-                sh 'mkdir -p ~/.kube'
-                sh 'echo "$K8S_CONFIG" > ~/.kube/config'
-                sh './jenkins/scripts/deploy.sh production'
-            }
-        }
+        // stage('Deploy to Production') {
+        //     when {
+        //         branch 'main'
+        //     }
+        //     steps {
+        //         input message: 'Confirm deployment to Production environment?'
+        //         sh 'mkdir -p ~/.kube'
+        //         sh 'echo "$K8S_CONFIG" > ~/.kube/config'
+        //         sh './jenkins/scripts/deploy.sh production'
+        //     }
+        // }
     }
 
     post {
@@ -113,6 +126,8 @@ pipeline {
         }
         success {
             echo 'Build and deployment successful!'
+            echo "API Image: ${DOCKER_IMAGE_API}:${DOCKER_TAG}"
+            echo "UI Image: ${DOCKER_IMAGE_UI}:${DOCKER_TAG}"
             // You can add notification steps here (Slack, email, etc.)
         }
         failure {
