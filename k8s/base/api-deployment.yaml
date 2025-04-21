@@ -1,0 +1,85 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: asr-api
+  namespace: asr-system
+  labels:
+    app: asr-api
+spec:
+  replicas: 3  # 3 replicas as required
+  selector:
+    matchLabels:
+      app: asr-api
+  strategy:
+    type: RollingUpdate
+    rollingUpdate:
+      maxSurge: 1
+      maxUnavailable: 0
+  template:
+    metadata:
+      labels:
+        app: asr-api
+      annotations:
+        prometheus.io/scrape: 'true'
+        prometheus.io/port: '8000'
+        prometheus.io/path: /metrics
+    spec:
+      affinity:
+        podAntiAffinity:
+          preferredDuringSchedulingIgnoredDuringExecution:
+          - weight: 100
+            podAffinityTerm:
+              labelSelector:
+                matchExpressions:
+                - key: app
+                  operator: In
+                  values:
+                  - asr-api
+              topologyKey: kubernetes.io/hostname
+      containers:
+      - name: asr-api
+        image: tuandung12092002/asr-fastapi-server:latest
+        imagePullPolicy: Always
+        ports:
+        - containerPort: 8000
+          name: http
+        resources:
+          requests:
+            memory: 512Mi
+            cpu: 200m
+          limits:
+            memory: 1Gi
+            cpu: 500m
+        env:
+        - name: INFERENCE_DEVICE
+          value: cpu
+        - name: PORT
+          value: '8000'
+        - name: ENABLE_TRACING
+          value: 'true'
+        - name: JAEGER_HOST
+          value: jaeger-collector.observability.svc.cluster.local
+        - name: JAEGER_PORT
+          value: '6831'
+        - name: SERVICE_NAME
+          value: asr-api
+        - name: PROMETHEUS_MULTIPROC_DIR
+          value: /tmp/prometheus-metrics
+        volumeMounts:
+        - name: prometheus-metrics
+          mountPath: /tmp/prometheus-metrics
+        livenessProbe:
+          httpGet:
+            path: /health
+            port: 8000
+          initialDelaySeconds: 30
+          periodSeconds: 30
+        readinessProbe:
+          httpGet:
+            path: /health
+            port: 8000
+          initialDelaySeconds: 15
+          periodSeconds: 10
+      volumes:
+      - name: prometheus-metrics
+        emptyDir: {}

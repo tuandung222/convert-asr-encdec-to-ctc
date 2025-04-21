@@ -15,3 +15,10 @@
 # Docker files
 Dockerfile text eol=lf
 *.Dockerfile text eol=lf
+
+# Terraform files
+*.tf text eol=lf
+*.tfvars text eol=lf
+*.tfvars.json text eol=lf
+*.tfvars.yaml text eol=lf
+*.tfvars.yml text eol=lf

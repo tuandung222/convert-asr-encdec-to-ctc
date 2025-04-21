@@ -1,0 +1,18 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: asr-api
+  namespace: asr-system
+  labels:
+    app: asr-api
+  annotations:
+    service.beta.kubernetes.io/do-loadbalancer-name: asr-api-lb
+spec:
+  type: LoadBalancer
+  ports:
+  - port: 80
+    targetPort: 8000
+    protocol: TCP
+    name: http
+  selector:
+    app: asr-api

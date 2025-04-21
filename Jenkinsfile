@@ -1,18 +1,15 @@
 pipeline {
-    agent {
-        docker {
-            image 'python:3.10'
-        }
-    }
+    agent any
 
     environment {
         DOCKER_HUB_CREDS = credentials('docker-hub-credentials')
-        REGISTRY = "tuandung12092002"
-        DOCKER_IMAGE_API = "${REGISTRY}/asr-fastapi-server"
-        DOCKER_IMAGE_UI = "${REGISTRY}/asr-streamlit-ui"
-        DOCKER_TAG = "${env.BUILD_NUMBER}"
-        DOCKER_LATEST_TAG = "latest"
-        // K8S_CONFIG = credentials('k8s-config')
+        DO_API_TOKEN = credentials('do-api-token')
+        CLUSTER_NAME = 'asr-k8s-cluster'
+        DOCKER_REGISTRY = 'tuandung12092002'
+        API_IMAGE = 'asr-fastapi-server'
+        UI_IMAGE = 'asr-streamlit-ui'
+        TAG = sh(script: 'date +"%Y%m%d_%H%M%S"', returnStdout: true).trim()
+        LATEST_TAG = 'latest'
     }
 
     stages {
@@ -22,117 +19,87 @@ pipeline {
             }
         }
 
-        stage('Install Dependencies') {
+        stage('Build Images') {
             steps {
-                sh 'pip install -r requirements.txt'
-                sh 'pip install pytest pytest-cov flake8'
-            }
-        }
+                sh 'chmod +x ./push_images.sh'
 
-        stage('Code Quality') {
-            steps {
-                sh 'flake8 . --count --select=E9,F63,F7,F82 --show-source --statistics'
-                sh 'pre-commit run --all-files || true'  // Run pre-commit but don't fail if some checks fail
-            }
-        }
-
-        // stage('Test') {
-        //     steps {
-        //         sh 'pytest --cov=src tests/'
-        //     }
-        //     post {
-        //         always {
-        //             junit 'test-results/*.xml'
-        //             cobertura coberturaReportFile: 'coverage.xml'
-        //         }
-        //     }
-        // }
-
-        stage('Build Docker Images') {
-            steps {
-                // API image with proper name
-                sh """
-                docker build -t ${DOCKER_IMAGE_API}:${DOCKER_TAG} \
-                  -t ${DOCKER_IMAGE_API}:${DOCKER_LATEST_TAG} \
-                  --build-arg APP_USER=api \
-                  --build-arg APP_USER_UID=1000 \
-                  -f api/Dockerfile .
-                """
-
-                // UI image with proper name
-                sh """
-                docker build -t ${DOCKER_IMAGE_UI}:${DOCKER_TAG} \
-                  -t ${DOCKER_IMAGE_UI}:${DOCKER_LATEST_TAG} \
-                  --build-arg APP_USER=streamlit \
-                  --build-arg APP_USER_UID=1000 \
-                  -f ui/Dockerfile .
-                """
-            }
-        }
-
-        stage('Push Docker Images') {
-            steps {
                 // Login to Docker Hub
                 sh 'echo $DOCKER_HUB_CREDS_PSW | docker login -u $DOCKER_HUB_CREDS_USR --password-stdin'
 
-                // Push API images with both version tag and latest
-                sh """
-                docker push ${DOCKER_IMAGE_API}:${DOCKER_TAG}
-                docker push ${DOCKER_IMAGE_API}:${DOCKER_LATEST_TAG}
-                """
-
-                // Push UI images with both version tag and latest
-                sh """
-                docker push ${DOCKER_IMAGE_UI}:${DOCKER_TAG}
-                docker push ${DOCKER_IMAGE_UI}:${DOCKER_LATEST_TAG}
-                """
-
-                // Log build information
-                echo "Successfully pushed images to registry:"
-                echo "API: ${DOCKER_IMAGE_API}:${DOCKER_TAG}"
-                echo "UI: ${DOCKER_IMAGE_UI}:${DOCKER_TAG}"
+                // Build and push images using the script
+                sh './push_images.sh'
             }
         }
 
-        // stage('Deploy to Development') {
-        //     when {
-        //         branch 'develop'
-        //     }
-        //     steps {
-        //         sh 'mkdir -p ~/.kube'
-        //         sh 'echo "$K8S_CONFIG" > ~/.kube/config'
-        //         sh './jenkins/scripts/deploy.sh development'
-        //     }
-        // }
+        stage('Deploy to Kubernetes') {
+            steps {
+                // Authenticate with Digital Ocean
+                sh 'doctl auth init -t $DO_API_TOKEN'
 
-        // stage('Deploy to Production') {
-        //     when {
-        //         branch 'main'
-        //     }
-        //     steps {
-        //         input message: 'Confirm deployment to Production environment?'
-        //         sh 'mkdir -p ~/.kube'
-        //         sh 'echo "$K8S_CONFIG" > ~/.kube/config'
-        //         sh './jenkins/scripts/deploy.sh production'
-        //     }
-        // }
+                // Get kubeconfig for the cluster
+                sh 'doctl kubernetes cluster kubeconfig save $CLUSTER_NAME'
+
+                // Apply Kubernetes manifests
+                sh 'kubectl apply -f k8s/monitoring/observability-namespace.yaml'
+                sh 'kubectl apply -f k8s/base/namespace.yaml'
+                sh 'kubectl apply -f k8s/base/'
+
+                // Restart deployments to pick up new images
+                sh 'kubectl rollout restart deployment/asr-api -n asr-system'
+                sh 'kubectl rollout restart deployment/asr-ui -n asr-system'
+
+                // Wait for rollout to complete
+                sh 'kubectl rollout status deployment/asr-api -n asr-system'
+                sh 'kubectl rollout status deployment/asr-ui -n asr-system'
+            }
+        }
+
+        stage('Deploy Monitoring') {
+            steps {
+                // Install Prometheus Stack
+                sh '''
+                    helm repo add prometheus-community https://prometheus-community.github.io/helm-charts
+                    helm repo update
+                    helm upgrade --install prometheus prometheus-community/kube-prometheus-stack \
+                        --namespace monitoring --create-namespace \
+                        --values k8s/monitoring/prometheus-values.yaml
+                '''
+
+                // Install Jaeger Operator
+                sh '''
+                    helm repo add jaegertracing https://jaegertracing.github.io/helm-charts
+                    helm repo update
+                    helm upgrade --install jaeger-operator jaegertracing/jaeger-operator \
+                        --namespace observability --create-namespace
+                    kubectl apply -f k8s/monitoring/jaeger-instance.yaml
+                '''
+            }
+        }
+
+        stage('Verify Deployment') {
+            steps {
+                // Get service endpoints
+                sh 'kubectl get services -n asr-system'
+                sh 'kubectl get services -n monitoring'
+                sh 'kubectl get services -n observability'
+
+                // Check pods are running
+                sh 'kubectl get pods -n asr-system'
+                sh 'kubectl get pods -n monitoring'
+                sh 'kubectl get pods -n observability'
+            }
+        }
     }
 
     post {
         always {
             sh 'docker logout'
-            sh 'docker image prune -f'
-            cleanWs()
         }
         success {
-            echo 'Build and deployment successful!'
-            echo "API Image: ${DOCKER_IMAGE_API}:${DOCKER_TAG}"
-            echo "UI Image: ${DOCKER_IMAGE_UI}:${DOCKER_TAG}"
-            // You can add notification steps here (Slack, email, etc.)
+            echo 'Deployment completed successfully!'
         }
         failure {
-            echo 'Build or deployment failed!'
-            // You can add notification steps here (Slack, email, etc.)
+            echo 'Deployment failed!'
         }
     }
 }

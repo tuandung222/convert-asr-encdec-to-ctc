@@ -1,0 +1,48 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: asr-ui
+  namespace: asr-system
+  labels:
+    app: asr-ui
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: asr-ui
+  template:
+    metadata:
+      labels:
+        app: asr-ui
+    spec:
+      containers:
+      - name: asr-ui
+        image: tuandung12092002/asr-streamlit-ui:latest
+        imagePullPolicy: Always
+        ports:
+        - containerPort: 8501
+          name: http
+        resources:
+          requests:
+            memory: 256Mi
+            cpu: 100m
+          limits:
+            memory: 512Mi
+            cpu: 300m
+        env:
+        - name: API_URL
+          value: http://asr-api.asr-system.svc.cluster.local
+        - name: GRAFANA_URL
+          value: http://grafana.monitoring.svc.cluster.local
+        livenessProbe:
+          httpGet:
+            path: /
+            port: 8501
+          initialDelaySeconds: 30
+          periodSeconds: 30
+        readinessProbe:
+          httpGet:
+            path: /
+            port: 8501
+          initialDelaySeconds: 15
+          periodSeconds: 10

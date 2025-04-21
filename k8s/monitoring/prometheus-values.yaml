@@ -1,0 +1,110 @@
+nameOverride: prometheus
+fullnameOverride: prometheus
+
+defaultRules:
+  create: true
+  rules:
+    alertmanager: true
+    etcd: true
+    configReloaders: true
+    general: true
+    k8s: true
+    kubeApiserver: true
+    kubeApiserverAvailability: true
+    kubeApiserverSlos: true
+    kubelet: true
+    kubePrometheusGeneral: true
+    kubePrometheusNodeRecording: true
+    kubernetesApps: true
+    kubernetesResources: true
+    kubernetesStorage: true
+    kubernetesSystem: true
+    kubeScheduler: true
+    kubeStateMetrics: true
+    network: true
+    node: true
+    nodeExporterAlerting: true
+    nodeExporterRecording: true
+    prometheus: true
+    prometheusOperator: true
+
+prometheus:
+  enabled: true
+  serviceAccount:
+    create: true
+  prometheusSpec:
+    serviceMonitorSelectorNilUsesHelmValues: false
+    serviceMonitorSelector: {}
+    serviceMonitorNamespaceSelector: {}
+    podMonitorSelectorNilUsesHelmValues: false
+    podMonitorSelector: {}
+    podMonitorNamespaceSelector: {}
+    retention: 10d
+    resources:
+      requests:
+        memory: 512Mi
+        cpu: 500m
+      limits:
+        memory: 1Gi
+        cpu: 1000m
+
+alertmanager:
+  enabled: true
+  serviceAccount:
+    create: true
+
+grafana:
+  enabled: true
+  adminPassword: admin
+  service:
+    type: LoadBalancer
+    annotations:
+      service.beta.kubernetes.io/do-loadbalancer-name: grafana-lb
+  resources:
+    requests:
+      memory: 256Mi
+      cpu: 100m
+    limits:
+      memory: 512Mi
+      cpu: 200m
+  sidecar:
+    dashboards:
+      enabled: true
+      label: grafana_dashboard
+  datasources:
+    datasources.yaml:
+      apiVersion: 1
+      datasources:
+      - name: Prometheus
+        type: prometheus
+        url: http://prometheus-server
+        access: proxy
+        isDefault: true
+  dashboardProviders:
+    dashboardproviders.yaml:
+      apiVersion: 1
+      providers:
+      - name: default
+        orgId: 1
+        folder: ''
+        type: file
+        disableDeletion: false
+        editable: true
+        options:
+          path: /var/lib/grafana/dashboards/default
+  dashboards:
+    default:
+      asr-dashboard:
+        gnetId: 14928  # Node Exporter dashboard
+        revision: 1
+        datasource: Prometheus
+      k8s-system-dashboard:
+        gnetId: 15757  # Kubernetes cluster monitoring
+        revision: 1
+        datasource: Prometheus
+
+nodeExporter:
+  enabled: true
+
+kubeStateMetrics:
+  enabled: true
