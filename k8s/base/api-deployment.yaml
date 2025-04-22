@@ -22,111 +22,154 @@ spec:
       annotations:
         prometheus.io/scrape: 'true' # Enable Prometheus metrics scraping
         prometheus.io/port: '8000' # Port where metrics are exposed
-        prometheus.io/path: /metrics # Path where metrics are available
+        prometheus.io/path: '/metrics' # Path where metrics are available
     spec:
+      # Distribute pods across nodes for high availability
       affinity:
-        podAntiAffinity: # Ensures pods are distributed across different nodes
+        podAntiAffinity:
           preferredDuringSchedulingIgnoredDuringExecution:
-          - weight: 100   # High weight makes this rule strongly preferred
+          - weight: 100
             podAffinityTerm:
               labelSelector:
                 matchExpressions:
                 - key: app
                   operator: In
                   values:
-                  - asr-api       # Avoid scheduling pods with this label on the same node
-              topologyKey: kubernetes.io/hostname   # Use hostname as the topology key
+                  - asr-api
+              topologyKey: kubernetes.io/hostname
+      # Add security context for the pod to ensure proper permissions
+      securityContext:
+        fsGroup: 1000
+        runAsUser: 1000
+        runAsGroup: 1000
+      # Init container to set up directories with proper permissions
       initContainers:
-      - name: prepare-app-structure
+      - name: init-dirs
         image: busybox
-        command: ["/bin/sh", "-c"]
-        args:
-          - >
-            if [ ! -d /app/src/models ]; then
-              mkdir -p /app/src/models;
-              echo "Creating module structure for src.models";
-              echo "# Empty init file for module discovery" > /app/src/__init__.py;
-              echo "# Empty init file for module discovery" > /app/src/models/__init__.py;
-              echo "# Stub module for inference_model.py" > /app/src/models/inference_model.py;
-              echo "class ASRInferenceModel:" >> /app/src/models/inference_model.py;
-              echo "    def __init__(self):" >> /app/src/models/inference_model.py;
-              echo "        pass" >> /app/src/models/inference_model.py;
-              echo "" >> /app/src/models/inference_model.py;
-              echo "def create_asr_model(*args, **kwargs):" >> /app/src/models/inference_model.py;
-              echo "    return ASRInferenceModel()" >> /app/src/models/inference_model.py;
-            fi
+        command: 
+        - sh
+        - -c
+        - |
+          mkdir -p /app/checkpoints/onnx /app/checkpoints/.cache /tmp/cache /tmp/prometheus-metrics
+          chmod -R 777 /app/checkpoints /tmp/cache /tmp/prometheus-metrics
+          ls -la /app/checkpoints
+          echo "Directories created and permissions set"
         volumeMounts:
-        - name: app-volume
-          mountPath: /app
+        - name: checkpoints
+          mountPath: /app/checkpoints
+        - name: prometheus-metrics
+          mountPath: /tmp/prometheus-metrics
+        - name: cache-volume
+          mountPath: /tmp/cache
+        securityContext:
+          runAsUser: 0  # Run as root to ensure permissions can be set
       containers:
       - name: asr-api
         image: tuandung12092002/asr-fastapi-server:latest   # Container image to use
         imagePullPolicy: Always   # Always pull the latest image version
-        # command: [/bin/bash, -c]
+        command: ["python", "-m", "uvicorn", "api.app:app", "--host", "0.0.0.0", "--port", "8000"]
         ports:
         - containerPort: 8000     # Port exposed by the container
           name: http     # Name for the port
         resources:   # Resource allocation and limits
           requests:   # Minimum resources needed
             memory: 512Mi
-            cpu: 500m    # Increased to match docker-compose
+            cpu: 500m    # Direct match with docker-compose resource allocation
           limits:   # Maximum resources allowed
-            memory: 1Gi
-            cpu: 1000m    # Increased to match docker-compose (1 CPU)
+            memory: 2Gi
+            cpu: 2000m    # Direct match with docker-compose resource allocation
         env:   # Environment variables for the container
-        - name: PYTHONPATH     # Configure Python module search path
-          value: "/app:/app/src"
-        - name: PYTHONUNBUFFERED     # Added from Dockerfile
-          value: '1'
-        - name: PYTHONDONTWRITEBYTECODE     # Added from Dockerfile
-          value: '1'
-        - name: INFERENCE_DEVICE     # Set device for model inference
-          value: cpu
         - name: PORT     # Set API server port
-          value: '8000'
-        - name: ENABLE_TRACING     # Enable distributed tracing
-          value: 'true'
-        - name: JAEGER_HOST     # Updated Jaeger host to match service discovery in k8s
-          value: jaeger-agent.observability.svc.cluster.local
-        - name: JAEGER_PORT     # Jaeger collector port
-          value: '6831'
-        - name: SERVICE_NAME     # Service name for tracing
-          value: asr-api
-        - name: SKIP_OTEL_MIDDLEWARE     # Added from Dockerfile
-          value: 'true'
+          value: "8000"
+        - name: INFERENCE_DEVICE     # Set device for model inference
+          value: "cpu"
         - name: PROMETHEUS_MULTIPROC_DIR     # Directory for Prometheus metrics in multi-process mode
-          value: /tmp/prometheus-metrics
+          value: "/tmp/prometheus-metrics"
+        - name: PYTHONPATH     # Configure Python module search path
+          value: "/app"
+        - name: PYTHONUNBUFFERED     # Added from Dockerfile
+          value: "1"
+        - name: PYTHONDONTWRITEBYTECODE     # Added from Dockerfile
+          value: "1"
+        - name: ENVIRONMENT     # Added from Dockerfile
+          value: "production"
+        - name: ENABLE_TRACING     # Enable distributed tracing
+          value: "true"
+        - name: SERVICE_NAME     # Service name for tracing
+          value: "asr-api"
+        - name: SKIP_OTEL_MIDDLEWARE     # Added from Dockerfile
+          value: "true"
+        - name: JAEGER_HOST     # Updated Jaeger host to match service discovery in k8s
+          value: "jaeger-agent.observability.svc.cluster.local"
+        - name: JAEGER_PORT     # Jaeger collector port
+          value: "6831"
+        # Add HuggingFace cache environment variable to ensure models are stored in writable location
+        - name: HF_HOME
+          value: "/tmp/cache"
+        # Debug environment variables
+        - name: DEBUG_PERMISSIONS
+          value: "true"
         volumeMounts:   # Mount volumes into the container
-        - name: prometheus-metrics     # Volume for storing Prometheus metrics
+        - name: checkpoints
+          mountPath: /app/checkpoints
+        - name: prometheus-metrics
           mountPath: /tmp/prometheus-metrics
-        - name: app-volume
-          mountPath: /app
+        - name: cache-volume
+          mountPath: /tmp/cache
         livenessProbe:   # Checks if the container is running
           httpGet:
             path: /health   # Health check endpoint
             port: 8000
           initialDelaySeconds: 60   # Reduced from 180s to 60s to better match Dockerfile
-          periodSeconds: 200   # Increased to match Dockerfile's interval
-          timeoutSeconds: 30   # Timeout after 30 seconds
-          failureThreshold: 3   # Reduced from 6 to 3
+          periodSeconds: 30   # Reduced from 200s to 30s for more frequent health checks
+          timeoutSeconds: 10   # Reduced from 30s to 10s for quicker response
+          failureThreshold: 3   # Reduced from 3 to 3
         readinessProbe:   # Checks if the container is ready to serve requests
           httpGet:
             path: /health
             port: 8000
-          initialDelaySeconds: 60   # Reduced from 180s to 60s
-          periodSeconds: 60   # Kept at 60s for more frequent readiness checks
-          timeoutSeconds: 30   # Timeout after 30 seconds
+          initialDelaySeconds: 40   # Reduced from 180s to 40s for quicker readiness checks
+          periodSeconds: 20   # Reduced from 60s to 20s for more frequent readiness checks
+          timeoutSeconds: 10   # Reduced from 30s to 10s for quicker response
           failureThreshold: 3   # Kept at 3
         startupProbe:   # Checks if the container has started successfully
           httpGet:
             path: /health
             port: 8000
           initialDelaySeconds: 40   # Reduced to match Dockerfile's start-period
-          periodSeconds: 20   # More frequent checks during startup
-          timeoutSeconds: 30   # Timeout after 30 seconds
-          failureThreshold: 10   # 10 retries = up to ~3.5 minutes for startup
+          periodSeconds: 10   # Reduced from 20s to 10s for more frequent checks during startup
+          timeoutSeconds: 10   # Reduced from 30s to 10s for quicker response
+          failureThreshold: 12   # 12 retries = up to ~12 minutes for startup
+        # Add lifecycle hook to print directory permissions for debugging
+        lifecycle:
+          postStart:
+            exec:
+              command: 
+              - sh
+              - -c
+              - |
+                echo "Checking directory permissions..."
+                ls -la /app/checkpoints
+                ls -la /tmp/cache
+                ls -la /tmp/prometheus-metrics
       volumes: # Volumes used by the pod
       - name: prometheus-metrics   # Volume for Prometheus metrics
         emptyDir: {}   # Ephemeral volume that exists for the pod's lifetime
-      - name: app-volume
-        emptyDir: {}   # Shared volume between init container and main container
+      - name: checkpoints
+        emptyDir: {}   # Using emptyDir for simplicity and to ensure write access
+      - name: cache-volume
+        emptyDir: {}   # For HuggingFace cache
+---
+# PersistentVolumeClaim for model checkpoints
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: asr-checkpoints-pvc
+  namespace: asr-system
+spec:
+  accessModes:
+    - ReadWriteOnce
+  resources:
+    requests:
+      storage: 1Gi
+  storageClassName: do-block-storage
