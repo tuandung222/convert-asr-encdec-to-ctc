@@ -31,7 +31,7 @@ jobs:
     - name: Create necessary directories
       run: |
         mkdir -p src/models src/utils api
-        touch src/__init__.py src/models/__init__.py src/utils/__init__.py
+        touch src/__init__.py src/models/__init__.py src/utils/__init__.py api/__init__.py
     
     - name: Set up Docker Buildx
       uses: docker/setup-buildx-action@v2

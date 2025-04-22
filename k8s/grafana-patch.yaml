@@ -1,0 +1,17 @@
+grafana:
+  persistence:
+    enabled: false
+  initChownData:
+    enabled: false
+  securityContext:
+    runAsUser: 0
+    runAsGroup: 0
+    fsGroup: 0
+  adminPassword: admin
+  resources:
+    limits:
+      cpu: 200m
+      memory: 300Mi
+    requests:
+      cpu: 50m
+      memory: 100Mi 

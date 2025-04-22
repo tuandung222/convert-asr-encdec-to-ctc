@@ -9,6 +9,11 @@ YELLOW='\033[1;33m'  # Section headers and warnings
 RED='\033[0;31m'     # Error messages
 NC='\033[0m'         # No Color (resets formatting)
 
+# Set shorter timeouts for development environments
+export K8S_TIMEOUT=120s
+export SHORT_SLEEP=15
+export MONITORING_OPTIONAL=true
+
 # Source utility functions
 source ./setup_utils.sh
 

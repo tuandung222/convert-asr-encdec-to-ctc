@@ -21,6 +21,23 @@ if ! kubectl get namespace monitoring &> /dev/null; then
         echo "Deployment cancelled. Please run ./3_setup_monitoring.sh first."
         exit 0
     fi
+else
+    # Check monitoring components status but don't block deployment
+    echo -e "\n${YELLOW}=== Checking monitoring status ===${NC}"
+    PROMETHEUS_PODS=$(kubectl -n monitoring get pods | grep -v prometheus-grafana | grep prometheus)
+    GRAFANA_PODS=$(kubectl -n monitoring get pods | grep grafana)
+    
+    echo -e "Prometheus components:"
+    echo "$PROMETHEUS_PODS"
+    
+    echo -e "\nGrafana status:"
+    echo "$GRAFANA_PODS"
+    
+    if echo "$GRAFANA_PODS" | grep -E "0/|Error|CrashLoopBackOff" > /dev/null; then
+        echo -e "${YELLOW}Warning: Grafana appears to be having issues.${NC}"
+        echo -e "This won't prevent the ASR application from working."
+        echo -e "You can fix Grafana later by running ./fix-grafana.sh\n"
+    fi
 fi
 
 # Verify namespaces exist or create if needed

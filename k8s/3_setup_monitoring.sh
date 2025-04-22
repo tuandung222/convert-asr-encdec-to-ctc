@@ -83,7 +83,18 @@ fi
 
 if [ ! -z "$GRAFANA_DEPLOYMENT" ]; then
     echo -e "${YELLOW}Waiting for $GRAFANA_DEPLOYMENT to be ready...${NC}"
-    kubectl -n monitoring wait --for=condition=available --timeout=300s $GRAFANA_DEPLOYMENT
+    if ! kubectl -n monitoring wait --for=condition=available --timeout=180s $GRAFANA_DEPLOYMENT; then
+        echo -e "${YELLOW}Grafana deployment not ready after timeout. This is not critical - we'll continue.${NC}"
+        echo -e "${YELLOW}=== Diagnosing Grafana issues ===${NC}"
+        echo -e "You can check the Grafana pod status with:"
+        echo -e "  kubectl -n monitoring get pods | grep grafana"
+        echo -e "Check Grafana pod logs with:"
+        echo -e "  kubectl -n monitoring logs \$(kubectl -n monitoring get pods -l app.kubernetes.io/name=grafana -o name)"
+        echo -e "Check Grafana pod events with:"
+        echo -e "  kubectl -n monitoring describe pod \$(kubectl -n monitoring get pods -l app.kubernetes.io/name=grafana -o name | head -1)"
+    else
+        echo -e "${GREEN}Grafana deployment is ready!${NC}"
+    fi
 fi
 
 # Install Jaeger Operator
@@ -160,6 +171,28 @@ fi
 echo -e "\n${YELLOW}=== Monitoring Endpoints ===${NC}"
 echo -e "Since we're using NodePort for monitoring services to stay within Digital Ocean limits,"
 echo -e "you'll need to use the Node IP and port to access these services.\n"
+
+# Check if Grafana is having issues and provide common fixes
+if kubectl -n monitoring get pods | grep grafana | grep -E "0/1|Error|CrashLoopBackOff" > /dev/null; then
+    echo -e "\n${YELLOW}=== Grafana Troubleshooting ===${NC}"
+    echo -e "Grafana pod is not starting properly. Here are some common fixes:"
+    echo -e "1. Check if it's a resource issue:"
+    echo -e "   kubectl -n monitoring describe pod \$(kubectl -n monitoring get pods -l app.kubernetes.io/name=grafana -o name | head -1) | grep -A5 Events"
+    
+    echo -e "\n2. If it's a PersistentVolumeClaim issue, you can edit the helm values to use emptyDir instead:"
+    echo -e "   Create a file grafana-patch.yaml with:"
+    echo -e "   grafana:\n     persistence:\n       enabled: false"
+    echo -e "   Then update the deployment:"
+    echo -e "   helm upgrade prometheus prometheus-community/kube-prometheus-stack -n monitoring --values monitoring/prometheus-values.yaml --values grafana-patch.yaml"
+    
+    echo -e "\n3. If it's a permission issue, you can try running Grafana as root:"
+    echo -e "   kubectl -n monitoring patch deployment prometheus-grafana -p '{\"spec\":{\"template\":{\"spec\":{\"securityContext\":{\"runAsUser\":0,\"runAsGroup\":0,\"fsGroup\":0}}}}}'"
+    
+    echo -e "\n4. Inspect Grafana logs to find the specific issue:"
+    echo -e "   kubectl -n monitoring logs \$(kubectl -n monitoring get pods -l app.kubernetes.io/name=grafana -o name)"
+    
+    echo -e "\nYou can proceed with the deployment and fix Grafana later. The API will still work without Grafana."
+fi
 
 # Show Prometheus service details
 echo -e "${GREEN}Prometheus:${NC}"

@@ -67,6 +67,9 @@ COPY src/utils /app/src/utils
 COPY api/metrics.py /app/src/
 COPY api /app/api
 
+# Create necessary __init__.py files
+RUN touch /app/__init__.py /app/api/__init__.py
+
 # Set ownership of copied files
 RUN chown -R ${APP_USER}:${APP_USER} /app
 
@@ -85,7 +88,9 @@ ENV PYTHONUNBUFFERED=1 \
     JAEGER_HOST=jaeger \
     JAEGER_PORT=6831 \
     # Don't attempt to use OpenTelemetry middleware
-    SKIP_OTEL_MIDDLEWARE=true
+    SKIP_OTEL_MIDDLEWARE=true \
+    # Ensure Python can find modules
+    PYTHONPATH=/app
 
 # # Install numba
 # RUN pip install --no-cache-dir numba
@@ -104,4 +109,4 @@ HEALTHCHECK --interval=200s --timeout=30s --start-period=40s --retries=3 \
     CMD curl -f http://localhost:8000/health || exit 1
 
 # Run the application
-CMD ["uvicorn", "api.app:app", "--host", "0.0.0.0", "--port", "8000"]
+CMD ["python", "-m", "uvicorn", "api.app:app", "--host", "0.0.0.0", "--port", "8000"]
