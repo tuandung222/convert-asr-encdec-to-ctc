@@ -60,7 +60,7 @@ jobs:
     - name: Build and push UI image
       uses: docker/build-push-action@v4
       with:
-        context: .`
+        context: .
         file: ui/Dockerfile
         push: true
         tags: |
