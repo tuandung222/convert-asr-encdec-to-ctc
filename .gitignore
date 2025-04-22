@@ -141,3 +141,23 @@ temp/
 
 # Terraform
 *.tfvars
+
+# Terraform files
+terraform/.terraform/
+terraform/.terraform.lock.hcl
+terraform/terraform.tfstate
+terraform/terraform.tfstate.backup
+terraform/terraform.tfvars
+
+# Kubernetes files
+kubeconfig.yaml
+**/kubeconfig
+**/*.kubeconfig
+
+# Environment files
+.env
+**/.env
+
+# Digital Ocean Token
+**/*_token*
+**/access_token*
