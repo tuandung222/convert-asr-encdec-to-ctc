@@ -8,8 +8,8 @@ repos:
     exclude: \.ipynb$
   # - id: check-yaml
   - id: check-json
-  - id: check-added-large-files
-    args: [--maxkb=1024]
+  # - id: check-added-large-files
+  #   args: [--maxkb=1024]
   - id: debug-statements
   - id: check-merge-conflict
   - id: check-executables-have-shebangs

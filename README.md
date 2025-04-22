@@ -61,6 +61,64 @@ graph TD
     class Docker,K8s deploy
 ```
 
+## 🛠️ Terraform Infrastructure Setup
+
+For Kubernetes deployment, we use Terraform to provision the required infrastructure on Digital Ocean:
+
+```mermaid
+graph TD
+    TF[Terraform]-->|Creates|DOKS[Digital Ocean Kubernetes Service]
+    TF-->|Configures|NodePool[Worker Node Pool]
+    TF-->|Generates|KC[Kubeconfig File]
+    DOKS-->|Hosts|Workloads[ASR Application Workloads]
+    NodePool-->|Provides|Resources[Compute Resources]
+    KC-->|Enables|Access[Cluster Access]
+
+    style TF fill:#f96,stroke:#333
+    style DOKS fill:#69f,stroke:#333
+    style NodePool fill:#9cf,stroke:#333
+```
+
+### Key Infrastructure Components
+
+The Terraform configuration creates the following resources:
+
+- **Kubernetes Cluster**: A DOKS (Digital Ocean Kubernetes Service) cluster with:
+  - Kubernetes version: `1.32.2-do.0` (customizable)
+  - Auto-upgrade enabled (maintenance window: Sundays at 04:00)
+  - Region: `sgp1` (Singapore by default, customizable)
+
+- **Node Pool Configuration**:
+  - Default size: `s-2vcpu-4gb` (2 vCPU, 4GB RAM, customizable)
+  - Initial node count: 2 (customizable)
+  - Auto-scaling enabled (min: 1, max: initial count + 1)
+
+- **Outputs**: The Terraform configuration provides useful outputs:
+  - Cluster ID and endpoint
+  - Path to kubeconfig file
+  - Ready-to-use kubectl connection command
+
+### Customization Options
+
+You can customize the infrastructure by modifying `terraform.tfvars`:
+
+```
+# API token (required)
+do_token = "your-digitalocean-api-token"
+
+# Region (optional, default: sgp1)
+region = "sgp1"
+
+# Kubernetes version (optional)
+kubernetes_version = "1.32.2-do.0"
+
+# Node size (optional)
+node_size = "s-2vcpu-4gb"
+
+# Node count (optional)
+node_count = 2
+```
+
 ## 🧠 Model Architecture
 
 The model improves over traditional encoder-decoder ASR systems by replacing the decoder with a CTC head:
@@ -138,6 +196,24 @@ This will start:
 
 For production deployment with high availability and scalability:
 
+```mermaid
+graph TD
+    Setup[Setup Script]-->|1. Authenticate|DO[Digital Ocean]
+    Setup-->|2. Create/Apply|TF[Terraform]
+    TF-->|3. Provision|K8s[Kubernetes Cluster]
+    Setup-->|4. Configure|KC[kubectl]
+    Setup-->|5. Deploy|App[Application Components]
+    Setup-->|6. Optional|Mon[Monitoring]
+
+    style Setup fill:#f96,stroke:#333
+    style TF fill:#69f,stroke:#333
+    style K8s fill:#9cf,stroke:#333
+```
+
+#### Automated Deployment
+
+The easiest way to deploy is using the provided setup script:
+
 ```bash
 # Navigate to the k8s directory
 cd k8s
@@ -149,46 +225,97 @@ chmod +x setup.sh monitoring-setup.sh
 ./setup.sh
 ```
 
-The Kubernetes deployment provides:
-- API Service with 3 replicas and anti-affinity
-- Load-balanced UI service
-- Comprehensive monitoring with Helm charts
-- Automated setup and deployment scripts
+The Kubernetes deployment follows this process:
+1. **Infrastructure provisioning** with Terraform to create a Kubernetes cluster on Digital Ocean
+2. **Application deployment** with kubectl to deploy the components to the cluster
 
-#### Kubernetes Architecture
+The automated setup script will:
+- Authenticate with Digital Ocean using your API token
+- Create and configure the Terraform files
+- Provision a Kubernetes cluster on Digital Ocean with auto-scaling capabilities
+- Configure kubectl to connect to the new cluster
+- Deploy the ASR API (with 3 replicas) and UI components
+- Optionally set up the monitoring stack with Prometheus, Grafana, and Jaeger
 
-```mermaid
-graph TD
-    subgraph "Digital Ocean Kubernetes"
-        subgraph "ASR System Namespace"
-            API[API Deployment<br>3 replicas]
-            UI[UI Deployment]
-            APIService[API Service<br>LoadBalancer]
-            UIService[UI Service<br>LoadBalancer]
-        end
+#### Manual Deployment
 
-        subgraph "Monitoring Namespace"
-            Prometheus[Prometheus]
-            Grafana[Grafana]
-            AlertManager[Alert Manager]
-        end
+For more control over the process:
 
-        subgraph "Observability Namespace"
-            Jaeger[Jaeger All-in-One]
-        end
-    end
+```bash
+# 1. Create infrastructure with Terraform
+cd terraform
+cp terraform.tfvars.example terraform.tfvars
+# Edit terraform.tfvars with your DO API token
+terraform init
+terraform apply
 
-    User[User]-->|Access|APIService
-    User-->|Access|UIService
-    User-->|View Dashboards|Grafana
-    User-->|View Traces|Jaeger
+# 2. Configure kubectl
+doctl kubernetes cluster kubeconfig save asr-k8s-cluster
 
-    API-->Prometheus
-    API-->Jaeger
+# 3. Deploy application
+kubectl apply -f k8s/base/namespace.yaml
+kubectl apply -f k8s/base/
 
-    class API,UI accent
-    class Prometheus,Grafana,Jaeger secondary
+# 4. Optional: Set up monitoring
+cd k8s
+./monitoring-setup.sh
 ```
+
+#### Accessing Services
+
+After deployment, you can access the services via their LoadBalancer IP addresses:
+```bash
+# Get service endpoints
+kubectl get svc -n asr-system
+```
+
+#### Kubernetes Resources Created
+
+The deployment creates:
+- **API Service**: 3 replicas with anti-affinity for high availability
+- **UI Service**: Streamlit interface with LoadBalancer
+- **Namespaces**: Separate namespaces for application and monitoring
+- **Monitoring**: Prometheus, Grafana, and Jaeger (optional)
+
+#### Cleanup
+
+To remove all resources:
+```bash
+cd terraform
+terraform destroy
+```
+
+### Kubernetes Project Structure
+
+The `k8s/` directory is organized as follows:
+
+```
+k8s/
+├── setup.sh                 # Main setup script for full deployment
+├── monitoring-setup.sh      # Script for setting up the monitoring stack
+├── base/                    # Core application manifests
+│   ├── namespace.yaml       # ASR system namespace
+│   ├── api-deployment.yaml  # API deployment with 3 replicas
+│   ├── api-service.yaml     # API service (LoadBalancer)
+│   ├── ui-deployment.yaml   # UI deployment
+│   └── ui-service.yaml      # UI service (LoadBalancer)
+└── monitoring/              # Monitoring configuration
+    ├── observability-namespace.yaml  # Namespace for tracing
+    ├── prometheus-values.yaml        # Prometheus Helm values
+    └── jaeger-instance.yaml          # Jaeger configuration
+```
+
+The deployment process:
+1. `setup.sh` handles infrastructure creation and application deployment
+2. `monitoring-setup.sh` sets up the monitoring stack using Helm:
+   - Prometheus and Grafana for metrics collection and visualization
+   - Jaeger for distributed tracing
+   - Pre-configured dashboards for ASR metrics
+
+The setup creates three namespaces:
+- `asr-system`: Contains the main application components
+- `monitoring`: Contains Prometheus and Grafana
+- `observability`: Contains Jaeger for distributed tracing
 
 ## 🖥️ API Usage
 

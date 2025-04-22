@@ -5,10 +5,10 @@ do_token = "your-digitalocean-api-token"
 region = "sgp1"
 
 # Kubernetes version (optional)
-kubernetes_version = "1.26.3-do.0"
+kubernetes_version = "1.32.2-do.0"
 
 # Node size (optional, default: s-2vcpu-4gb)
 node_size = "s-2vcpu-4gb"
 
 # Number of worker nodes (optional, default: 3)
-node_count = 3
+node_count = 2
