@@ -59,12 +59,12 @@ repos:
 #         args: [--line-length=100]
 #     -   id: nbqa-isort
 
-- repo: https://github.com/asottile/pyupgrade
-  rev: v3.15.0
-  hooks:
-  - id: pyupgrade
-    args: [--py310-plus]
-    exclude: \.ipynb$
+# - repo: https://github.com/asottile/pyupgrade
+#   rev: v3.15.0
+#   hooks:
+#   - id: pyupgrade
+#     args: [--py310-plus]
+#     exclude: \.ipynb$
 
 # Removing nbstripout hook that strips output from notebooks
 # -   repo: https://github.com/kynan/nbstripout
