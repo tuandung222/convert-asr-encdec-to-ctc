@@ -124,6 +124,7 @@ multirun/
 # Model artifacts
 models/
 saved_models/
+!src/models/
 *.onnx
 !checkpoints/onnx/model_int8.onnx
 *.tflite
