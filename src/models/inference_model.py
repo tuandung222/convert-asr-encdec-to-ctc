@@ -992,7 +992,10 @@ def create_asr_model(
     #     return LightningCheckpointInferenceModel(model_id, device)
 
     if model_type.lower() == "onnx":
-        return ONNXASRInferenceModel(model_id, device)
+        # NOTE: This is the optimized ONNX model for faster inference
+        from .improved_inference_model import OptimizedONNXASRInferenceModel
+        return OptimizedONNXASRInferenceModel(model_id, device)
+        # return ONNXASRInferenceModel(model_id, device)
     elif model_type.lower() == "pytorch":
         return ASRInferenceModel(model_id, device)
     else:

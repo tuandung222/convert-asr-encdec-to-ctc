@@ -87,6 +87,15 @@ ENV PYTHONUNBUFFERED=1 \
     # Don't attempt to use OpenTelemetry middleware
     SKIP_OTEL_MIDDLEWARE=true
 
+# # Install numba
+# RUN pip install --no-cache-dir numba
+
+# # Install soundfile
+# RUN pip install --no-cache-dir soundfile
+
+# # Install resampy
+# RUN pip install --no-cache-dir resampy
+
 # Expose port
 EXPOSE 8000
 

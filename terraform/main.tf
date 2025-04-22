@@ -46,7 +46,10 @@ resource "digitalocean_kubernetes_cluster" "asr_cluster" {
 
     auto_scale = true               # Enable auto-scaling for the node pool
     min_nodes  = 1                  # Minimum number of nodes when auto-scaling (required to be at least 1)
-    max_nodes  = var.node_count + 1 # Maximum nodes is one more than the initial count
+    # max_nodes  = var.node_count + 1 # Maximum nodes is one more than the initial count
+
+    max_nodes = var.node_count # Maximum nodes is the initial count
+
     tags = ["asr-worker", "production"] # Tags specific to these worker nodes
 
     # Optional: Add taints if you need to reserve nodes for specific workloads
