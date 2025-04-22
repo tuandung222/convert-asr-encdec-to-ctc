@@ -350,34 +350,19 @@ This will start:
 
 ### Option 2: Deploying on Kubernetes with DigitalOcean
 
-For a production-grade deployment that ensures high availability and scalability, deploy the application on a Kubernetes cluster provisioned on DigitalOcean. The deployment process involves several key steps, as illustrated in the diagram below:
+For a production-grade deployment that ensures high availability and scalability, deploy the application on a Kubernetes cluster provisioned on DigitalOcean. The deployment process involves several key steps:
 
-```mermaid
-graph TD
-    Start[Start Deployment Process]
-    Authenticate[1. Authenticate with DigitalOcean]
-    Provision[2. Provision Infrastructure with Terraform]
-    SetupCluster[3. Set up Kubernetes Cluster]
-    ConfigureKubectl[4. Configure kubectl Access]
-    DeployComponents[5. Deploy Application Components]
-    SetupMonitoring[6. Optional: Set up Monitoring Stack]
-    Complete[Deployment Complete]
+1. **Authenticate with DigitalOcean**: Set up your DigitalOcean API credentials to allow Terraform and kubectl to interact with your account.
 
-    Start --> Authenticate
-    Authenticate --> Provision
-    Provision --> SetupCluster
-    SetupCluster --> ConfigureKubectl
-    ConfigureKubectl --> DeployComponents
-    DeployComponents --> SetupMonitoring
-    SetupMonitoring --> Complete
+2. **Provision Infrastructure with Terraform**: Use Terraform scripts to automate the creation of infrastructure components like the Kubernetes cluster.
 
-    %% Style definitions
-    classDef stepStyle fill:#1976D2,stroke:#0D47A1,stroke-width:2px,color:#FFFFFF
-    class Authenticate,Provision,SetupCluster,ConfigureKubectl,DeployComponents,SetupMonitoring stepStyle
+3. **Set Up Kubernetes Cluster**: Initialize and configure the Kubernetes cluster to manage your application's containers and resources.
 
-    style Start fill:#388E3C,stroke:#1B5E20,stroke-width:2px,color:#FFFFFF
-    style Complete fill:#388E3C,stroke:#1B5E20,stroke-width:2px,color:#FFFFFF
-```
+4. **Configure kubectl Access**: Set up `kubectl` to interact with your new Kubernetes cluster for deploying and managing applications.
+
+5. **Deploy Application Components**: Use `kubectl` to deploy the FastAPI server, UI, and other components to the cluster.
+
+6. **Optional: Set Up Monitoring Stack**: Deploy monitoring tools like Prometheus, Grafana, and Jaeger for observability.
 
 #### Automated Deployment
 
