@@ -6,7 +6,7 @@ metadata:
 spec:
   strategy: allInOne  # For production, you might want to use "production" strategy
   allInOne:
-    image: jaegertracing/all-in-one:1.44
+    image: jaegertracing/all-in-one:latest
     options:
       log-level: info
   storage:
@@ -15,7 +15,12 @@ spec:
       memory:
         max-traces: 100000
   ingress:
-    enabled: true
+    enabled: false
+  query:
+    serviceType: NodePort  # Use NodePort instead of LoadBalancer
+  agent:
+    strategy: DaemonSet
+    serviceType: ClusterIP  # Make agent accessible within the cluster
   ui:
     options:
       dependencies:
@@ -28,4 +33,8 @@ spec:
         - label: Documentation
           url: https://www.jaegertracing.io/docs/latest
   annotations:
-    scheduler.alpha.kubernetes.io/critical-pod: ''
+    scheduler.alpha.kubernetes.io/critical-pod: ""
+  ingester:
+    enabled: false  # Not needed for allInOne strategy
+  collector:
+    enabled: false  # Not needed for allInOne strategy

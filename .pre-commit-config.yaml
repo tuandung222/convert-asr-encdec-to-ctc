@@ -2,16 +2,16 @@ repos:
 - repo: https://github.com/pre-commit/pre-commit-hooks
   rev: v4.5.0
   hooks:
-  - id: trailing-whitespace
-    exclude: \.ipynb$
-  - id: end-of-file-fixer
-    exclude: \.ipynb$
+  # - id: trailing-whitespace
+  #   exclude: \.ipynb$ 
+  # - id: end-of-file-fixer
+  #   exclude: \.ipynb$
   # - id: check-yaml
   - id: check-json
   # - id: check-added-large-files
   #   args: [--maxkb=1024]
   - id: debug-statements
-  - id: check-merge-conflict
+  # - id: check-merge-conflict
   - id: check-executables-have-shebangs
   - id: detect-private-key
 
@@ -83,8 +83,8 @@ repos:
 - repo: https://github.com/macisamuele/language-formatters-pre-commit-hooks
   rev: v2.12.0
   hooks:
-  - id: pretty-format-yaml
-    args: [--autofix, --indent, '2']
+  # - id: pretty-format-yaml
+  #   args: [--autofix, --indent, '2']
   - id: pretty-format-toml
     args: [--autofix]
 

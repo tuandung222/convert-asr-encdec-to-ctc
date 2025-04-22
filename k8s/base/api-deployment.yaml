@@ -36,102 +36,97 @@ spec:
                   values:
                   - asr-api       # Avoid scheduling pods with this label on the same node
               topologyKey: kubernetes.io/hostname   # Use hostname as the topology key
+      initContainers:
+      - name: prepare-app-structure
+        image: busybox
+        command: ["/bin/sh", "-c"]
+        args:
+          - >
+            if [ ! -d /app/src/models ]; then
+              mkdir -p /app/src/models;
+              echo "Creating module structure for src.models";
+              echo "# Empty init file for module discovery" > /app/src/__init__.py;
+              echo "# Empty init file for module discovery" > /app/src/models/__init__.py;
+              echo "# Stub module for inference_model.py" > /app/src/models/inference_model.py;
+              echo "class ASRInferenceModel:" >> /app/src/models/inference_model.py;
+              echo "    def __init__(self):" >> /app/src/models/inference_model.py;
+              echo "        pass" >> /app/src/models/inference_model.py;
+              echo "" >> /app/src/models/inference_model.py;
+              echo "def create_asr_model(*args, **kwargs):" >> /app/src/models/inference_model.py;
+              echo "    return ASRInferenceModel()" >> /app/src/models/inference_model.py;
+            fi
+        volumeMounts:
+        - name: app-volume
+          mountPath: /app
       containers:
       - name: asr-api
         image: tuandung12092002/asr-fastapi-server:latest   # Container image to use
         imagePullPolicy: Always   # Always pull the latest image version
-        command: [/bin/bash, -c]
-        args:
-        - |
-          # Create directory structure if it doesn't exist
-          mkdir -p /app/src/models
-
-          # Create __init__.py files to make them proper Python packages
-          touch /app/src/__init__.py
-          touch /app/src/models/__init__.py
-
-          # Create minimal inference_model.py if it doesn't exist
-          if [ ! -f /app/src/models/inference_model.py ]; then
-            cat > /app/src/models/inference_model.py << 'EOF'
-          import logging
-
-          # Configure logging
-          logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(name)s - %(levelname)s - %(message)s')
-          logger = logging.getLogger("asr-model")
-
-          class ASRInferenceModel:
-              def __init__(self, model_id="", device="cpu"):
-                  self.model_id = model_id
-                  self.device = device
-                  logger.info(f"ASR Placeholder Model initialized (model_id={model_id}, device={device})")
-
-              def transcribe(self, audio_path):
-                  logger.info(f"Placeholder transcribe method called with {audio_path}")
-                  return {"text": "Placeholder ASR response", "duration": 1.0}
-
-          def create_asr_model(model_id="", device="cpu", model_type="pytorch"):
-              logger.info(f"Creating placeholder ASR model (model_id={model_id}, type={model_type})")
-              return ASRInferenceModel(model_id, device)
-          EOF
-          fi
-
-          # Start the API server
-          cd /app
-          python -m uvicorn api.app:app --host 0.0.0.0 --port 8000
+        # command: [/bin/bash, -c]
         ports:
         - containerPort: 8000     # Port exposed by the container
           name: http     # Name for the port
         resources:   # Resource allocation and limits
           requests:   # Minimum resources needed
             memory: 512Mi
-            cpu: 200m
+            cpu: 500m    # Increased to match docker-compose
           limits:   # Maximum resources allowed
             memory: 1Gi
-            cpu: 500m
+            cpu: 1000m    # Increased to match docker-compose (1 CPU)
         env:   # Environment variables for the container
         - name: PYTHONPATH     # Configure Python module search path
-          value: /app
+          value: "/app:/app/src"
+        - name: PYTHONUNBUFFERED     # Added from Dockerfile
+          value: '1'
+        - name: PYTHONDONTWRITEBYTECODE     # Added from Dockerfile
+          value: '1'
         - name: INFERENCE_DEVICE     # Set device for model inference
           value: cpu
         - name: PORT     # Set API server port
           value: '8000'
         - name: ENABLE_TRACING     # Enable distributed tracing
           value: 'true'
-        - name: JAEGER_HOST     # Jaeger collector service for tracing
-          value: jaeger-collector.observability.svc.cluster.local
+        - name: JAEGER_HOST     # Updated Jaeger host to match service discovery in k8s
+          value: jaeger-agent.observability.svc.cluster.local
         - name: JAEGER_PORT     # Jaeger collector port
           value: '6831'
         - name: SERVICE_NAME     # Service name for tracing
           value: asr-api
+        - name: SKIP_OTEL_MIDDLEWARE     # Added from Dockerfile
+          value: 'true'
         - name: PROMETHEUS_MULTIPROC_DIR     # Directory for Prometheus metrics in multi-process mode
           value: /tmp/prometheus-metrics
         volumeMounts:   # Mount volumes into the container
         - name: prometheus-metrics     # Volume for storing Prometheus metrics
           mountPath: /tmp/prometheus-metrics
+        - name: app-volume
+          mountPath: /app
         livenessProbe:   # Checks if the container is running
           httpGet:
             path: /health   # Health check endpoint
             port: 8000
-          initialDelaySeconds: 180   # Wait 3 minutes before first probe to allow model loading
-          periodSeconds: 10   # Check every 10 seconds
-          timeoutSeconds: 5   # Timeout after 5 seconds
-          failureThreshold: 6   # Fail after 6 consecutive failures
+          initialDelaySeconds: 60   # Reduced from 180s to 60s to better match Dockerfile
+          periodSeconds: 200   # Increased to match Dockerfile's interval
+          timeoutSeconds: 30   # Timeout after 30 seconds
+          failureThreshold: 3   # Reduced from 6 to 3
         readinessProbe:   # Checks if the container is ready to serve requests
           httpGet:
             path: /health
             port: 8000
-          initialDelaySeconds: 180   # Wait 3 minutes before first probe to allow model loading
-          periodSeconds: 15   # Check every 15 seconds
-          timeoutSeconds: 10   # Timeout after 10 seconds
-          failureThreshold: 3   # Fail after 3 consecutive failures
+          initialDelaySeconds: 60   # Reduced from 180s to 60s
+          periodSeconds: 60   # Kept at 60s for more frequent readiness checks
+          timeoutSeconds: 30   # Timeout after 30 seconds
+          failureThreshold: 3   # Kept at 3
         startupProbe:   # Checks if the container has started successfully
           httpGet:
             path: /health
             port: 8000
-          initialDelaySeconds: 180   # Wait 3 minutes before first probe to allow model loading
-          periodSeconds: 15   # Check every 15 seconds
-          timeoutSeconds: 10   # Timeout after 10 seconds
-          failureThreshold: 12   # Allow up to 3 minutes (12×15s) for additional startup time
+          initialDelaySeconds: 40   # Reduced to match Dockerfile's start-period
+          periodSeconds: 20   # More frequent checks during startup
+          timeoutSeconds: 30   # Timeout after 30 seconds
+          failureThreshold: 10   # 10 retries = up to ~3.5 minutes for startup
       volumes: # Volumes used by the pod
       - name: prometheus-metrics   # Volume for Prometheus metrics
         emptyDir: {}   # Ephemeral volume that exists for the pod's lifetime
+      - name: app-volume
+        emptyDir: {}   # Shared volume between init container and main container

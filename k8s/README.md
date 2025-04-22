@@ -1,3 +1,5 @@
+#!/bin/bash
+
 # Vietnamese ASR Kubernetes Deployment
 
 This directory contains configurations for deploying the Vietnamese ASR system on Digital Ocean Kubernetes Service (DOKS).
@@ -10,82 +12,87 @@ This directory contains configurations for deploying the Vietnamese ASR system o
 - [Helm](https://helm.sh/) (v3.0+)
 - [doctl](https://docs.digitalocean.com/reference/doctl/) - Digital Ocean CLI
 
-## Deployment Steps
+## Deployment Structure
+
+The deployment is organized into sequential steps, each with its own script:
+
+1. **Infrastructure Setup** (1_infrastructure_setup.sh)
+   - Creates Kubernetes cluster on Digital Ocean using Terraform
+   - Sets up node pools and networking
+
+2. **Kubernetes Configuration** (2_configure_kubernetes.sh)
+   - Configures kubectl to communicate with the cluster
+   - Sets up necessary authentication
+
+3. **Monitoring Setup** (3_setup_monitoring.sh)
+   - Installs Prometheus, Grafana, and Jaeger
+   - Sets up dashboards and service monitoring
+
+4. **Application Deployment** (4_deploy_application.sh)
+   - Deploys the API and UI components
+   - Configures services and endpoints
+
+5. **Cleanup** (5_cleanup.sh)
+   - Removes all resources when they're no longer needed
+
+## Quick Deployment
+
+For a guided deployment process that runs all steps in sequence:
+
+```bash
+# Make the scripts executable
+chmod +x *.sh
+
+# Run the main setup script
+./setup.sh
+```
+
+## Step-by-Step Deployment
+
+If you prefer to run each step manually:
 
 ### 1. Infrastructure Provisioning with Terraform
 
 ```bash
-# Navigate to the terraform directory
-cd terraform
-
-# Create a terraform.tfvars file with your Digital Ocean API token
-echo 'do_token = "your-digitalocean-api-token"' > terraform.tfvars
-
-# Initialize Terraform
-terraform init
-
-# Plan the deployment
-terraform plan -out=tfplan
-
-# Apply the configuration
-terraform apply tfplan
-
-# Get the kubeconfig
-export KUBECONFIG=$(pwd)/kubeconfig.yaml
+# Create the Kubernetes cluster on Digital Ocean
+./1_infrastructure_setup.sh
 ```
 
-### 2. Deploy Application to Kubernetes
+### 2. Configure Kubernetes
 
 ```bash
-# Create namespaces
-kubectl apply -f k8s/monitoring/observability-namespace.yaml
-kubectl apply -f k8s/base/namespace.yaml
-
-# Deploy the API and UI components
-kubectl apply -f k8s/base/
-
-# Verify deployments
-kubectl get pods -n asr-system
+# Set up kubectl to connect to the cluster
+./2_configure_kubernetes.sh
 ```
 
-### 3. Install Monitoring Stack
+### 3. Set Up Monitoring
 
 ```bash
-# Add Helm repositories
-helm repo add prometheus-community https://prometheus-community.github.io/helm-charts
-helm repo add jaegertracing https://jaegertracing.github.io/helm-charts
-helm repo update
-
-# Install Prometheus Stack
-helm install prometheus prometheus-community/kube-prometheus-stack \
-  --namespace monitoring --create-namespace \
-  --values k8s/monitoring/prometheus-values.yaml
-
-# Install Jaeger Operator
-helm install jaeger-operator jaegertracing/jaeger-operator \
-  --namespace observability --create-namespace
-
-# Create Jaeger instance
-kubectl apply -f k8s/monitoring/jaeger-instance.yaml
-
-# Verify monitoring deployments
-kubectl get pods -n monitoring
-kubectl get pods -n observability
+# Install and configure Prometheus, Grafana, and Jaeger
+./3_setup_monitoring.sh
 ```
 
-### 4. Access Services
+### 4. Deploy Application
+
+```bash
+# Deploy the ASR API and UI components
+./4_deploy_application.sh
+```
+
+### 5. Clean Up When Done
+
+```bash
+# Remove all resources when no longer needed
+./5_cleanup.sh
+```
+
+## Access Services
 
 After deployment, find the LoadBalancer IP addresses:
 
 ```bash
-# Get API and UI endpoints
-kubectl get svc -n asr-system
-
-# Get Grafana endpoint
-kubectl get svc -n monitoring prometheus-grafana
-
-# Get Jaeger endpoint
-kubectl get svc -n observability jaeger-query
+# Get all service endpoints
+kubectl get svc -A
 ```
 
 **Access URLs:**
@@ -94,32 +101,19 @@ kubectl get svc -n observability jaeger-query
 - Grafana: http://<grafana-loadbalancer-ip> (Username: admin, Password: admin)
 - Jaeger UI: http://<jaeger-query-loadbalancer-ip>:16686
 
-## CI/CD with Jenkins
+## Security Notes
 
-The included Jenkinsfile automates:
-1. Building Docker images
-2. Pushing images to Docker Hub
-3. Deploying to Kubernetes
-4. Setting up monitoring
+The deployment scripts handle Digital Ocean API tokens and other sensitive information. For security:
 
-### Jenkins Requirements
+- Use environment variables when possible instead of storing tokens in files
+- Never commit files containing API tokens or credentials to version control
+- The scripts automatically update .gitignore to exclude sensitive files
 
-- Jenkins with following plugins:
-  - Docker Pipeline
-  - Kubernetes
-  - Credentials Binding
-- Credentials:
-  - `docker-hub-credentials`: Docker Hub username/password
-  - `do-api-token`: Digital Ocean API token
+## Troubleshooting
 
-## Clean Up
+If you encounter issues during deployment, check:
 
-To destroy the infrastructure when no longer needed:
-
-```bash
-# Navigate to terraform directory
-cd terraform
-
-# Destroy resources
-terraform destroy
-```
+1. Digital Ocean API token permissions
+2. Cluster status in the Digital Ocean dashboard
+3. Pod status with `kubectl get pods -A`
+4. Logs with `kubectl logs <pod-name> -n <namespace>`
