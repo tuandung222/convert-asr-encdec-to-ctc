@@ -1,7 +1,7 @@
 import logging
 import os
 import time
-from typing import Any, Dict, List, Optional, Union, Tuple
+from typing import Any, Dict, List, Optional, Tuple, Union
 
 import numpy as np
 import torch
@@ -18,6 +18,7 @@ logger = logging.getLogger("asr-model")
 # Try to import optimized audio processing libraries
 try:
     import soundfile as sf
+
     HAS_SOUNDFILE = True
 except ImportError:
     HAS_SOUNDFILE = False
@@ -25,6 +26,7 @@ except ImportError:
 
 try:
     from scipy import signal
+
     HAS_SCIPY = True
 except ImportError:
     HAS_SCIPY = False
@@ -32,6 +34,7 @@ except ImportError:
 
 try:
     from numba import jit
+
     HAS_NUMBA = True
 except ImportError:
     HAS_NUMBA = False
@@ -59,14 +62,14 @@ class OptimizedONNXASRInferenceModel:
         self.onnx_path = None
         self.ort_session = None
         self.processor = None
-        
+
         # Initialize model and processor
         self._download_checkpoint()
         self._load_model()
-        
+
         # Perform model warmup for faster first inference
         self.initialize_with_warmup()
-        
+
         logger.info(f"Optimized ONNX ASR model initialized on {self.device}")
 
     def _download_checkpoint(self) -> str:
@@ -89,7 +92,7 @@ class OptimizedONNXASRInferenceModel:
             if os.path.exists(checkpoint_path):
                 logger.info(f"Found checkpoint at {checkpoint_path}")
                 return checkpoint_path
-                
+
             # Try quantized model next
             checkpoint_path = os.path.join("checkpoints", "onnx", "model.onnx")
             if os.path.exists(checkpoint_path):
@@ -99,7 +102,7 @@ class OptimizedONNXASRInferenceModel:
             # Download with exponential backoff retry
             max_retries = 3
             retry_delay = 1
-            
+
             for attempt in range(max_retries):
                 try:
                     # Try downloading the ONNX model directly
@@ -112,7 +115,7 @@ class OptimizedONNXASRInferenceModel:
                     return checkpoint_path
                 except Exception as e:
                     logger.warning(f"Failed to download INT8 ONNX model: {e}")
-                    
+
                     try:
                         # Try downloading the regular ONNX model
                         checkpoint_path = hf_hub_download(
@@ -124,14 +127,16 @@ class OptimizedONNXASRInferenceModel:
                         return checkpoint_path
                     except Exception as e:
                         logger.warning(f"Could not download ONNX model: {e}")
-                        
+
                         if attempt < max_retries - 1:
-                            wait_time = retry_delay * (2 ** attempt)
+                            wait_time = retry_delay * (2**attempt)
                             logger.info(f"Retrying in {wait_time} seconds...")
                             time.sleep(wait_time)
                         else:
-                            logger.warning("All download attempts failed, will try snapshot download")
-            
+                            logger.warning(
+                                "All download attempts failed, will try snapshot download"
+                            )
+
             # Try downloading the whole repository
             try:
                 repo_path = snapshot_download(self.model_id)
@@ -139,11 +144,9 @@ class OptimizedONNXASRInferenceModel:
 
                 # Look for ONNX model files
                 onnx_files = [
-                    os.path.join(repo_path, f)
-                    for f in os.listdir(repo_path)
-                    if f.endswith(".onnx")
+                    os.path.join(repo_path, f) for f in os.listdir(repo_path) if f.endswith(".onnx")
                 ]
-                
+
                 if onnx_files:
                     logger.info(f"Found ONNX model: {onnx_files[0]}")
                     return onnx_files[0]
@@ -154,7 +157,7 @@ class OptimizedONNXASRInferenceModel:
             except Exception as repo_error:
                 logger.error(f"Failed to download checkpoint or repository: {str(repo_error)}")
                 raise ValueError(f"Failed to download model: {str(repo_error)}")
-                
+
         except Exception as e:
             logger.error(f"Error downloading checkpoint: {e}")
             raise
@@ -178,7 +181,7 @@ class OptimizedONNXASRInferenceModel:
                 onnx_dir = os.path.join("checkpoints", "onnx")
                 if os.path.isdir(onnx_dir):
                     model_files = self._find_onnx_files(onnx_dir)
-                    
+
                 # Also try looking for model in the root of model_id
                 if not model_files and os.path.exists(self.model_id):
                     filename = os.path.basename(self.model_id)
@@ -204,6 +207,7 @@ class OptimizedONNXASRInferenceModel:
         except Exception as e:
             logger.error(f"Error loading ONNX model: {e}")
             import traceback
+
             logger.error(traceback.format_exc())
             raise
 
@@ -279,11 +283,11 @@ class OptimizedONNXASRInferenceModel:
             session_options.inter_op_num_threads = max(1, self.num_threads // 2)
             session_options.enable_mem_pattern = True
             session_options.enable_cpu_mem_arena = True
-            
+
             # Set execution mode
             if hasattr(ort, "ExecutionMode"):
                 session_options.execution_mode = ort.ExecutionMode.ORT_SEQUENTIAL
-            
+
             # Enable optimization for multi-core CPUs
             if hasattr(session_options, "add_session_config_entry"):
                 session_options.add_session_config_entry("session.dynamic_block_base_size", "4")
@@ -335,11 +339,11 @@ class OptimizedONNXASRInferenceModel:
                             fp32_path, providers=execution_providers, sess_options=session_options
                         )
                         self.onnx_path = fp32_path
-                        
+
                         # Cache input/output names
                         self.input_name = self.ort_session.get_inputs()[0].name
                         self.output_names = [o.name for o in self.ort_session.get_outputs()]
-                        
+
                         logger.info(
                             f"FP32 model loaded successfully with providers: {self.ort_session.get_providers()}"
                         )
@@ -349,7 +353,9 @@ class OptimizedONNXASRInferenceModel:
                     raise
 
         except ImportError:
-            logger.error("ONNX Runtime not installed. Please install with 'pip install onnxruntime'")
+            logger.error(
+                "ONNX Runtime not installed. Please install with 'pip install onnxruntime'"
+            )
             raise
         except Exception as e:
             logger.error(f"Error loading ONNX model: {e}")
@@ -363,12 +369,12 @@ class OptimizedONNXASRInferenceModel:
         if self.ort_session is None:
             logger.warning("No ONNX session loaded, skipping warmup")
             return
-            
+
         try:
             logger.info("Warming up ONNX model...")
             # Generate dummy input similar to real audio features
             dummy_input = np.zeros((1, 80, 3000), dtype=np.float32)
-            
+
             # Run inference on dummy input to warm up the model
             ort_inputs = {self.input_name: dummy_input}
             _ = self.ort_session.run(self.output_names, ort_inputs)
@@ -380,31 +386,31 @@ class OptimizedONNXASRInferenceModel:
     def _preprocess_audio(self, audio_path: str) -> Tuple[np.ndarray, int, float]:
         """
         Optimized audio preprocessing using faster libraries when available
-        
+
         Args:
             audio_path: Path to audio file
-            
+
         Returns:
             Tuple of (waveform, sample_rate, duration)
         """
         try:
             # Use soundfile for faster loading if available
             if HAS_SOUNDFILE:
-                waveform, sample_rate = sf.read(audio_path, dtype='float32')
-                
+                waveform, sample_rate = sf.read(audio_path, dtype="float32")
+
                 # Handle stereo to mono conversion
                 if len(waveform.shape) > 1 and waveform.shape[1] > 1:
                     waveform = np.mean(waveform, axis=1)
-                
+
                 # Ensure numpy array is contiguous in memory for faster processing
                 waveform = np.ascontiguousarray(waveform)
-                
+
                 # Resample if needed with fastest algorithm (scipy.signal.resample_poly)
                 if sample_rate != 16000:
                     if HAS_SCIPY:
                         # Use resample_poly for optimal speed
                         waveform = signal.resample_poly(
-                            waveform, 16000, sample_rate, padtype='constant'
+                            waveform, 16000, sample_rate, padtype="constant"
                         )
                     else:
                         # Use torchaudio as fallback
@@ -412,35 +418,35 @@ class OptimizedONNXASRInferenceModel:
                         transform = torchaudio.transforms.Resample(sample_rate, 16000)
                         waveform_tensor = transform(waveform_tensor)
                         waveform = waveform_tensor.squeeze(0).numpy()
-                    
+
                     sample_rate = 16000
-                
+
                 # Calculate duration
                 duration = len(waveform) / sample_rate
-                
+
                 return waveform, sample_rate, duration
             else:
                 # Fallback to torchaudio
                 waveform, sample_rate = torchaudio.load(audio_path)
-                
+
                 # Resample if needed
                 if sample_rate != 16000:
                     transform = torchaudio.transforms.Resample(sample_rate, 16000)
                     waveform = transform(waveform)
                     sample_rate = 16000
-                
+
                 # Convert to mono if stereo
                 if waveform.shape[0] > 1:
                     waveform = waveform.mean(dim=0, keepdim=True)
-                
+
                 # Calculate duration
                 duration = waveform.shape[1] / sample_rate
-                
+
                 # Convert to numpy for consistent interface
                 waveform = waveform.squeeze().numpy()
-                
+
                 return waveform, sample_rate, duration
-                
+
         except Exception as e:
             logger.error(f"Error in audio preprocessing: {e}")
             # Return None values to indicate failure
@@ -449,19 +455,20 @@ class OptimizedONNXASRInferenceModel:
     def _optimized_ctc_decode(self, logits: np.ndarray) -> str:
         """
         Optimized CTC decoding with numba JIT compilation if available
-        
+
         Args:
             logits: Model output logits
-            
+
         Returns:
             Decoded text
         """
         # Get the most likely token at each timestamp (argmax along vocab dimension)
         predicted_ids = np.argmax(logits[0], axis=-1)
         pad_token_id = self.processor.tokenizer.pad_token_id
-        
+
         # If numba is available, use JIT-compiled function for faster processing
         if HAS_NUMBA:
+
             @jit(nopython=True)
             def _collapse_repeated(ids, blank_id):
                 """JIT-compiled function for collapsing repeated tokens"""
@@ -472,17 +479,17 @@ class OptimizedONNXASRInferenceModel:
                         result.append(id)
                     prev_id = id
                 return result
-                
+
             # Filter out pad tokens and collapse repeats in one pass
             ids_no_blank = predicted_ids[predicted_ids != pad_token_id]
             collapsed_ids = _collapse_repeated(ids_no_blank, pad_token_id)
-            
+
         else:
             # Fallback to numpy operations which are still efficient
             # Get mask for non-blank tokens
             non_blank_mask = predicted_ids != pad_token_id
             filtered_ids = predicted_ids[non_blank_mask]
-            
+
             # Find where consecutive tokens differ (for collapsing repeats)
             if len(filtered_ids) > 0:
                 # Append a sentinel value to detect the last change
@@ -493,105 +500,106 @@ class OptimizedONNXASRInferenceModel:
                 collapsed_ids = filtered_ids[changes]
             else:
                 collapsed_ids = filtered_ids
-        
+
         # Convert to list for tokenizer
         token_ids = collapsed_ids.tolist() if HAS_NUMBA else collapsed_ids.tolist()
-        
+
         # Decode to text
         transcription = self.processor.tokenizer.decode(token_ids, skip_special_tokens=True)
-        
+
         # Remove the first two characters (tokenization bug fix)
         if len(transcription) > 2:
             transcription = transcription[2:]
-            
+
         return transcription
 
     def transcribe(self, audio_path: str) -> Dict[str, Any]:
         """
         Transcribe audio file with optimized processing pipeline
-        
+
         Args:
             audio_path: Path to audio file
-            
+
         Returns:
             Dict with transcription result and metadata
         """
         start_time = time.time()
-        
+
         try:
             # Check if ONNX is available
             if self.ort_session is None:
                 raise ValueError("ONNX session not initialized properly")
-                
+
             # Use optimized preprocessing
             waveform, sample_rate, duration = self._preprocess_audio(audio_path)
-            
+
             if waveform is None:
                 raise ValueError("Audio preprocessing failed")
-                
+
             # Extract features with processor
             inputs = self.processor.feature_extractor(
                 waveform, sampling_rate=sample_rate, return_tensors="np"
             )
-            
+
             # Run inference with ONNX Runtime
             ort_inputs = {self.input_name: inputs.input_features}
-            
+
             # Get logits from ONNX model
             logits = self.ort_session.run(self.output_names, ort_inputs)[0]
-            
+
             # Use optimized CTC decoding
             transcription = self._optimized_ctc_decode(logits)
-            
+
             # Calculate processing time and real-time factor
             processing_time = time.time() - start_time
             real_time_factor = processing_time / duration if duration > 0 else 0
-            
+
             # Return results with metadata
             return {
                 "text": transcription,
                 "duration": duration,
                 "processing_time": processing_time,
-                "real_time_factor": real_time_factor
+                "real_time_factor": real_time_factor,
             }
-            
+
         except Exception as e:
             logger.error(f"Error transcribing audio: {e}")
             import traceback
+
             logger.error(traceback.format_exc())
-            
+
             # Return error information
             return {
                 "text": f"Error: {str(e)}",
                 "duration": 0.0,
                 "processing_time": time.time() - start_time,
-                "error": True
+                "error": True,
             }
 
     def transcribe_batch(self, audio_paths: List[str]) -> List[Dict[str, Any]]:
         """
         Batch transcription for multiple audio files
-        
+
         Args:
             audio_paths: List of paths to audio files
-            
+
         Returns:
             List of transcription results
         """
         if not audio_paths:
             return []
-            
+
         batch_start_time = time.time()
         results = []
-        
+
         try:
             # Preprocess all audio files
             preprocessed = [self._preprocess_audio(path) for path in audio_paths]
-            
+
             # Create batch input
             batch_features = []
             valid_indices = []
-            
+
             for i, (waveform, sample_rate, _) in enumerate(preprocessed):
                 if waveform is not None:
                     features = self.processor.feature_extractor(
@@ -599,7 +607,7 @@ class OptimizedONNXASRInferenceModel:
                     ).input_features
                     batch_features.append(features)
                     valid_indices.append(i)
-            
+
             if not batch_features:
                 logger.warning("No valid audio files in batch")
                 # Return error for each file
@@ -607,40 +615,40 @@ class OptimizedONNXASRInferenceModel:
                     {"text": "Error: Audio preprocessing failed", "duration": 0.0, "error": True}
                     for _ in audio_paths
                 ]
-            
+
             # Stack features for batch processing
             batched_input = np.vstack(batch_features)
-            
+
             # Run inference once for the whole batch
             ort_inputs = {self.input_name: batched_input}
             batched_logits = self.ort_session.run(self.output_names, ort_inputs)[0]
-            
+
             # Initialize results list with None placeholders
             batch_results = [None] * len(audio_paths)
-            
+
             # Process each result separately
             for batch_idx, original_idx in enumerate(valid_indices):
                 waveform, sample_rate, duration = preprocessed[original_idx]
-                
+
                 # Get logits for this sample
-                logits = batched_logits[batch_idx:batch_idx+1]
-                
+                logits = batched_logits[batch_idx : batch_idx + 1]
+
                 # Decode transcription
                 transcription = self._optimized_ctc_decode(logits)
-                
+
                 # Calculate processing metrics
                 end_time = time.time()
                 processing_time = end_time - batch_start_time
                 real_time_factor = processing_time / duration if duration > 0 else 0
-                
+
                 # Store result
                 batch_results[original_idx] = {
                     "text": transcription,
                     "duration": duration,
                     "processing_time": processing_time,
-                    "real_time_factor": real_time_factor
+                    "real_time_factor": real_time_factor,
                 }
-            
+
             # Fill in any missing results (for failed preprocessing)
             for i in range(len(audio_paths)):
                 if batch_results[i] is None:
@@ -648,63 +656,65 @@ class OptimizedONNXASRInferenceModel:
                         "text": "Error: Audio preprocessing failed",
                         "duration": 0.0,
                         "processing_time": 0.0,
-                        "error": True
+                        "error": True,
                     }
-            
+
             return batch_results
-            
+
         except Exception as e:
             logger.error(f"Error in batch transcription: {e}")
             import traceback
+
             logger.error(traceback.format_exc())
-            
+
             # Fall back to individual processing
             return [self.transcribe(path) for path in audio_paths]
 
     def _convert_to_onnx(self) -> Dict[str, str]:
         """
         Convert PyTorch model to ONNX with advanced optimization
-        
+
         Returns:
             Dict with paths to model files
         """
         try:
             import torch
-            
+
             # Set output directory
             onnx_dir = os.path.join("checkpoints", "onnx")
             os.makedirs(onnx_dir, exist_ok=True)
-            
+
             # Check if INT8 model already exists
             int8_onnx_path = os.path.join(onnx_dir, "model_int8.onnx")
             if os.path.exists(int8_onnx_path):
                 logger.info(f"INT8 ONNX model already exists at {int8_onnx_path}")
                 return {"model": int8_onnx_path}
-                
+
             # Check if FP32 model already exists
             fp32_onnx_path = os.path.join(onnx_dir, "model.onnx")
             if os.path.exists(fp32_onnx_path):
                 logger.info(f"FP32 ONNX model exists at {fp32_onnx_path}")
-                
+
                 # Try to optimize the existing model with onnxruntime
                 try:
                     from onnxruntime.transformers import optimizer
+
                     optimized_path = os.path.join(onnx_dir, "model_optimized.onnx")
-                    
+
                     # Apply graph optimizations
                     opt_model = optimizer.optimize_model(
                         fp32_onnx_path,
-                        model_type='whisper',
+                        model_type="whisper",
                         num_heads=8,  # Adjust based on tiny model
-                        hidden_size=384  # Adjust based on tiny model
+                        hidden_size=384,  # Adjust based on tiny model
                     )
                     opt_model.save_model_to_file(optimized_path)
                     logger.info(f"ONNX model optimized: {optimized_path}")
-                    
+
                     # Try INT8 quantization
                     try:
-                        from onnxruntime.quantization import quantize_dynamic, QuantType
-                        
+                        from onnxruntime.quantization import QuantType, quantize_dynamic
+
                         logger.info(f"Applying INT8 quantization to ONNX model...")
                         quantize_dynamic(
                             model_input=optimized_path,
@@ -715,46 +725,46 @@ class OptimizedONNXASRInferenceModel:
                             op_types_to_quantize=["MatMul", "Gemm", "Conv", "Relu"],
                         )
                         logger.info(f"INT8 quantization completed: {int8_onnx_path}")
-                        
+
                         if os.path.exists(int8_onnx_path):
                             return {"model": int8_onnx_path}
                     except Exception as quant_error:
                         logger.warning(f"INT8 quantization failed: {quant_error}")
-                    
+
                     return {"model": optimized_path}
-                    
+
                 except ImportError:
                     logger.warning("ONNX Runtime optimizer not available")
                 except Exception as opt_error:
                     logger.warning(f"ONNX optimization failed: {opt_error}")
-                
+
                 # Return original model if optimization failed
                 return {"model": fp32_onnx_path}
-                
+
             # If no existing models, we need to convert from PyTorch
             # This part requires access to the original model implementation
             # For this example, I'll assume there's an ASRInferenceModel class we can use
-            
+
             logger.info("Converting PyTorch model to ONNX format...")
-            
+
             # Import the original model
             from src.models.inference_model import ASRInferenceModel
-            
+
             # Load PyTorch model
             pytorch_model = ASRInferenceModel(self.model_id, self.device)
-            
+
             # Ensure the model is loaded
             if pytorch_model.model is None:
                 raise ValueError("Failed to load PyTorch model for conversion")
-                
+
             # Create dummy input for tracing
             dummy_input = torch.randn(1, 80, 3000).to(self.device)
-            
+
             # Set model to eval mode
             pytorch_model.model.eval()
-            
+
             logger.info(f"Exporting model to ONNX at {fp32_onnx_path}")
-            
+
             # Export the model to ONNX with enhanced settings
             with torch.no_grad():
                 torch.onnx.export(
@@ -771,28 +781,27 @@ class OptimizedONNXASRInferenceModel:
                     do_constant_folding=True,  # Fold constants for optimization
                     verbose=False,
                 )
-                
+
             logger.info(f"Model exported to ONNX successfully: {fp32_onnx_path}")
-            
+
             # Try to optimize and quantize the model
             try:
                 # Verify the exported model
                 import onnx
+
                 onnx_model = onnx.load(fp32_onnx_path)
                 onnx.checker.check_model(onnx_model)
                 logger.info("ONNX model verification passed")
-                
+
                 # Apply optimization
                 try:
                     from onnxruntime.transformers import optimizer
+
                     optimized_path = os.path.join(onnx_dir, "model_optimized.onnx")
-                    
+
                     # Apply graph optimizations
                     opt_model = optimizer.optimize_model(
-                        fp32_onnx_path,
-                        model_type='whisper',
-                        num_heads=8,  
-                        hidden_size=384  
+                        fp32_onnx_path, model_type="whisper", num_heads=8, hidden_size=384
                     )
                     opt_model.save_model_to_file(optimized_path)
                     logger.info(f"ONNX model optimized: {optimized_path}")
@@ -801,11 +810,11 @@ class OptimizedONNXASRInferenceModel:
                     logger.warning("ONNX Runtime optimizer not available")
                 except Exception as opt_error:
                     logger.warning(f"ONNX optimization failed: {opt_error}")
-                
+
                 # Apply INT8 quantization
                 try:
-                    from onnxruntime.quantization import quantize_dynamic, QuantType
-                    
+                    from onnxruntime.quantization import QuantType, quantize_dynamic
+
                     logger.info(f"Applying INT8 quantization to ONNX model...")
                     quantize_dynamic(
                         model_input=fp32_onnx_path,
@@ -816,25 +825,26 @@ class OptimizedONNXASRInferenceModel:
                         op_types_to_quantize=["MatMul", "Gemm", "Conv", "Relu"],
                     )
                     logger.info(f"INT8 quantization completed: {int8_onnx_path}")
-                    
+
                     if os.path.exists(int8_onnx_path):
                         return {"model": int8_onnx_path}
                 except ImportError:
                     logger.warning("ONNX Runtime quantization tools not available")
                 except Exception as quant_error:
                     logger.warning(f"INT8 quantization failed: {quant_error}")
-                
+
             except ImportError:
                 logger.warning("ONNX package not installed")
             except Exception as verify_error:
                 logger.warning(f"ONNX model verification failed: {verify_error}")
-                
+
             # Return the model files (even if optimization failed)
             return {"model": fp32_onnx_path}
-            
+
         except Exception as e:
             logger.error(f"Error converting model to ONNX: {e}")
             import traceback
+
             logger.error(traceback.format_exc())
             return {}
 
@@ -843,41 +853,35 @@ class OptimizedONNXASRInferenceModel:
 if __name__ == "__main__":
     # Configure logging
     import sys
-    
+
     # Create handler with a more detailed formatter
     handler = logging.StreamHandler(sys.stdout)
-    formatter = logging.Formatter(
-        "%(asctime)s - %(name)s - %(levelname)s - %(message)s"
-    )
+    formatter = logging.Formatter("%(asctime)s - %(name)s - %(levelname)s - %(message)s")
     handler.setFormatter(formatter)
-    
+
     # Get the root logger and set its handler
     root_logger = logging.getLogger()
     root_logger.handlers = [handler]
     root_logger.setLevel(logging.INFO)
-    
+
     # Create and initialize the model
     model = OptimizedONNXASRInferenceModel(
-        model_id="tuandunghcmut/PhoWhisper-tiny-CTC",
-        device="cpu",
-        num_threads=4
+        model_id="tuandunghcmut/PhoWhisper-tiny-CTC", device="cpu", num_threads=4
     )
-    
+
     # Example: transcribe a single file
     result = model.transcribe("path/to/audio.wav")
     print(f"Transcription: {result['text']}")
     print(f"Duration: {result['duration']:.2f}s")
     print(f"Processing time: {result['processing_time']:.2f}s")
     print(f"Real-time factor: {result['real_time_factor']:.2f}x")
-    
+
     # Example: batch transcription
-    batch_results = model.transcribe_batch([
-        "path/to/audio1.wav",
-        "path/to/audio2.wav",
-        "path/to/audio3.wav"
-    ])
-    
+    batch_results = model.transcribe_batch(
+        ["path/to/audio1.wav", "path/to/audio2.wav", "path/to/audio3.wav"]
+    )
+
     for i, res in enumerate(batch_results):
         print(f"\nBatch item {i+1}:")
         print(f"Transcription: {res['text']}")
-        print(f"Real-time factor: {res.get('real_time_factor', 0):.2f}x") 
+        print(f"Real-time factor: {res.get('real_time_factor', 0):.2f}x")

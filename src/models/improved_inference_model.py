@@ -1,7 +1,7 @@
 import logging
 import os
 import time
-from typing import Any, Dict, List, Optional, Union, Tuple
+from typing import Any, Dict, List, Optional, Tuple, Union
 
 import numpy as np
 import torch
@@ -715,7 +715,7 @@ class OptimizedONNXASRInferenceModel:
 
                     # Try INT8 quantization
                     try:
-                        from onnxruntime.quantization import quantize_dynamic, QuantType
+                        from onnxruntime.quantization import QuantType, quantize_dynamic
 
                         logger.info(f"Applying INT8 quantization to ONNX model...")
                         quantize_dynamic(
@@ -815,7 +815,7 @@ class OptimizedONNXASRInferenceModel:
 
                 # Apply INT8 quantization
                 try:
-                    from onnxruntime.quantization import quantize_dynamic, QuantType
+                    from onnxruntime.quantization import QuantType, quantize_dynamic
 
                     logger.info(f"Applying INT8 quantization to ONNX model...")
                     quantize_dynamic(

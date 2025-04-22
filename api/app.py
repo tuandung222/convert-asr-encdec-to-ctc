@@ -63,6 +63,7 @@ try:
         Timer,
     )
     from src.models.inference_model import ASRInferenceModel, create_asr_model
+
     # from src.models.improved_inference_model import ASRInferenceModel, create_asr_model
 except ImportError:
     logger.error("Failed to import required modules. Make sure the project structure is correct.")

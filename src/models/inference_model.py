@@ -994,6 +994,7 @@ def create_asr_model(
     if model_type.lower() == "onnx":
         # NOTE: This is the optimized ONNX model for faster inference
         from .improved_inference_model import OptimizedONNXASRInferenceModel
+
         return OptimizedONNXASRInferenceModel(model_id, device)
         # return ONNXASRInferenceModel(model_id, device)
     elif model_type.lower() == "pytorch":
