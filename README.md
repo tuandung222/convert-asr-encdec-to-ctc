@@ -141,6 +141,162 @@ graph LR
 - **Reduced complexity**: Fewer parameters, smaller memory footprint
 - **Streaming-friendly**: Better for real-time applications
 
+## 📝 Training and Model Details
+
+### Model Architecture (PyTorch Implementation)
+
+The CTC-based architecture consists of two main components:
+
+```python
+class PhoWhisperCTCModel(nn.Module):
+    def __init__(self, encoder, dim, vocab_size):
+        super().__init__()
+        self.encoder = encoder
+        self.ctc_head = nn.Sequential(
+            nn.Linear(dim, dim), 
+            nn.GELU(), 
+            nn.LayerNorm(dim), 
+            nn.Linear(dim, vocab_size)
+        )
+
+    def forward(self, input_features, attention_mask=None):
+        # Get encoder output
+        encoder_out = self.encoder(input_features, attention_mask=attention_mask).last_hidden_state
+        # Apply CTC head to get logits
+        logits = self.ctc_head(encoder_out)
+        return logits
+```
+
+The CTC head consists of a 2-layer MLP with GELU activation and layer normalization, making it both effective and computationally efficient.
+
+### Training Process
+
+The model was trained using PyTorch Lightning with these key configurations:
+
+- **Dataset**: VietBud500 (Vietnamese speech data)
+- **Batch size**: 24
+- **Learning rate**: 1e-4 with cosine scheduling and warmup
+- **Precision**: bfloat16 mixed precision
+- **Optimizer**: AdamW with weight decay 0.1
+- **Loss function**: CTC Loss with pad token as blank
+- **Epochs**: 64
+
+Training leverages the PhoWhisper encoder, which is kept frozen, while only the CTC head is trained:
+
+```python
+# Load encoder from pre-trained PhoWhisper model
+temp_model = WhisperForConditionalGeneration.from_pretrained(model_name)
+self.encoder = WhisperEncoder(config=self.config)
+self.encoder.load_state_dict(temp_model.model.encoder.state_dict(), strict=True)
+```
+
+### CTC Training Details
+
+The CTC loss is calculated with the following key steps:
+
+1. Encoder outputs are passed through the CTC head to get logits
+2. Logits are transformed to log probabilities via softmax
+3. CTC loss calculates alignment probability between predicted sequences and target transcriptions
+
+```python
+# CTC Loss calculation
+log_probs = torch.nn.functional.log_softmax(logits, dim=2)
+input_lengths = torch.full(size=(log_probs.size(1),), fill_value=log_probs.size(0), dtype=torch.int32)
+# Use pad token as blank token
+loss = self.ctc_loss(log_probs, labels, input_lengths, label_lengths)
+```
+
+### CTC Decoding Implementation
+
+For inference, we implement an efficient CTC decoding algorithm:
+
+```python
+def ctc_decode(self, logits):
+    # Get most likely token at each timestamp
+    predicted_ids = np.argmax(logits[0], axis=-1)
+    
+    # Remove blank tokens (pad tokens)
+    non_blank_mask = predicted_ids != pad_token_id
+    filtered_ids = predicted_ids[non_blank_mask]
+    
+    # Collapse repeated tokens
+    if len(filtered_ids) > 0:
+        padded_ids = np.append(filtered_ids, -1)
+        changes = np.where(padded_ids[1:] != padded_ids[:-1])[0]
+        collapsed_ids = filtered_ids[changes]
+    else:
+        collapsed_ids = filtered_ids
+    
+    # Decode to text
+    text = self.processor.tokenizer.decode(collapsed_ids.tolist(), skip_special_tokens=True)
+    return text
+```
+
+### Evaluation Results
+
+The model achieves:
+
+- **Word Error Rate (WER)**: 41% on VietBud500 test set
+- **Real-time factor**: <0.5x (more than 2x faster than real-time)
+- **Inference speed**: ~0.02 seconds per sample on standard hardware
+- **Memory usage**: <400MB
+
+### Performance Optimizations
+
+Several optimizations are implemented to maximize performance:
+
+1. **JIT Compilation**: Numba JIT for performance-critical CTC decoding
+   ```python
+   @jit(nopython=True)
+   def _collapse_repeated(ids, blank_id):
+       """JIT-compiled function for collapsing repeated tokens"""
+       result = []
+       prev_id = -1
+       for id in ids:
+           if id != blank_id and id != prev_id:
+               result.append(id)
+           prev_id = id
+       return result
+   ```
+
+2. **Audio Preprocessing Pipeline**: Uses the fastest available libraries
+   ```python
+   # Optimal resampling with scipy.signal.resample_poly
+   waveform = signal.resample_poly(waveform, 16000, sample_rate, padtype='constant')
+   ```
+
+3. **Batch Processing**: Efficient handling of multiple audio files
+   ```python
+   # Stack features for batch processing
+   batched_input = np.vstack(batch_features)
+   # Run inference once for the whole batch
+   batched_logits = self.ort_session.run(self.output_names, ort_inputs)[0]
+   ```
+
+4. **ONNX Runtime Configuration**: Optimized session settings
+   ```python
+   session_options = ort.SessionOptions()
+   session_options.graph_optimization_level = ort.GraphOptimizationLevel.ORT_ENABLE_ALL
+   session_options.intra_op_num_threads = num_threads
+   session_options.enable_mem_pattern = True
+   ```
+
+5. **Model Warmup**: Reduce latency on first inference
+   ```python
+   # Run inference on dummy input to warm up the model
+   dummy_input = np.zeros((1, 80, 3000), dtype=np.float32)
+   _ = self.ort_session.run(self.output_names, {self.input_name: dummy_input})
+   ```
+
+### Available for Research and Production
+
+The trained model is available on HuggingFace:
+```python
+model_id = "tuandunghcmut/PhoWhisper-tiny-CTC"
+```
+
+The model is fully compatible with both research experimentation and production deployment, with optimized inference paths for both CPU and GPU.
+
 ## 🛠️ ONNX Optimization
 
 The model supports ONNX export with INT8 quantization for faster inference on CPU:
