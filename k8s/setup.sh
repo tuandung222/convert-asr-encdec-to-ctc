@@ -45,17 +45,39 @@ echo -e "\n${GREEN}=== Infrastructure setup completed! ===${NC}"
 
 # Step 2: Configure Kubernetes
 echo -e "\n${YELLOW}=== Step 2: Configuring Kubernetes ===${NC}"
-./2_configure_kubernetes.sh
+source ./2_configure_kubernetes.sh
 echo -e "\n${GREEN}=== Kubernetes configuration completed! ===${NC}"
+
+# Make sure KUBECONFIG is preserved for next steps
+if [ -f ../terraform/terraform.tfstate ]; then
+    cd ../terraform
+    CLUSTER_ID=$(terraform output -raw cluster_id 2>/dev/null || echo "")
+    cd ../k8s
+    if [ ! -z "$CLUSTER_ID" ]; then
+        export KUBECONFIG="${HOME}/.kube/config-${CLUSTER_ID}"
+        echo -e "${GREEN}KUBECONFIG set to: ${KUBECONFIG}${NC}"
+        
+        # Verify kubernetes connection
+        if ! kubectl cluster-info &>/dev/null; then
+            echo -e "${RED}Error: kubectl is not configured properly. Trying to reconnect...${NC}"
+            doctl kubernetes cluster kubeconfig save "$CLUSTER_ID" --set-current-context
+            
+            if ! kubectl cluster-info &>/dev/null; then
+                echo -e "${RED}Failed to configure kubectl. Please run setup step by step manually.${NC}"
+                exit 1
+            fi
+        fi
+    fi
+fi
 
 # Step 3: Setup monitoring (now before deploying application)
 echo -e "\n${YELLOW}=== Step 3: Setting up monitoring ===${NC}"
-./3_setup_monitoring.sh
+source ./3_setup_monitoring.sh
 echo -e "\n${GREEN}=== Monitoring setup completed! ===${NC}"
 
 # Step 4: Deploy application
 echo -e "\n${YELLOW}=== Step 4: Deploying application ===${NC}"
-./4_deploy_application.sh
+source ./4_deploy_application.sh
 echo -e "\n${GREEN}=== Application deployment completed! ===${NC}"
 
 echo -e "\n${GREEN}=====================================================${NC}"

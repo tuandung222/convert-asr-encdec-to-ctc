@@ -51,7 +51,7 @@ echo -e "\n${YELLOW}=== Verifying connection to Kubernetes cluster ===${NC}"
 if kubectl cluster-info; then
     echo -e "\n${GREEN}=== Kubernetes configuration successful! ===${NC}"
     echo -e "You can now use kubectl to manage your cluster."
-    echo -e "\nNext step: Run ./3_deploy_application.sh to deploy the ASR application"
+    echo -e "\nNext step: Run ./3_setup_monitoring.sh to set up monitoring"
 else
     echo -e "\n${RED}=== Failed to connect to Kubernetes cluster. ===${NC}"
     echo -e "Please check your Digital Ocean account and try again."

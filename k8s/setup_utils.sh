@@ -115,4 +115,34 @@ make_scripts_executable() {
         chmod +x "$script"
         echo -e "${GREEN}Made $script executable${NC}"
     done
+}
+
+# Ensure KUBECONFIG is set correctly and kubectl is working
+ensure_kubeconfig() {
+    # If KUBECONFIG is not set but we can find it from terraform
+    if [ -f ../terraform/terraform.tfstate ]; then
+        cd ../terraform
+        CLUSTER_ID=$(terraform output -raw cluster_id 2>/dev/null || echo "")
+        cd ../k8s
+        if [ ! -z "$CLUSTER_ID" ]; then
+            export KUBECONFIG="${HOME}/.kube/config-${CLUSTER_ID}"
+            echo -e "${GREEN}KUBECONFIG set to: ${KUBECONFIG}${NC}"
+            
+            # Verify kubernetes connection
+            if ! kubectl cluster-info &>/dev/null; then
+                echo -e "${YELLOW}Trying to reconnect to cluster...${NC}"
+                doctl kubernetes cluster kubeconfig save "$CLUSTER_ID" --set-current-context
+            fi
+        fi
+    fi
+    
+    # Final verification
+    if ! kubectl cluster-info &>/dev/null; then
+        echo -e "${RED}Error: kubectl is not configured or cannot connect to the cluster.${NC}"
+        echo -e "Please run ./2_configure_kubernetes.sh first."
+        return 1
+    fi
+    
+    echo -e "${GREEN}Kubernetes connection verified.${NC}"
+    return 0
 } 

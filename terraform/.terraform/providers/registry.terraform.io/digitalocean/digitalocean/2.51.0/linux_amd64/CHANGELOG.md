@@ -263,7 +263,7 @@ MISC:
 
 ## 2.35.0
 
-IMPROVEMENTS:
+IMPROVEMENTS: 
 - #1113 - @danaelhe - Apps: Support Project Assignment
 - #1109 - @andrewsomething - apps: Add GHCR as a supported registry type.
 - #1103 - @dweinshenker - Support scalable storage settings separately for read-replica vs. primary
@@ -355,14 +355,14 @@ MISC:
 
 - `build(deps)`: bump golang.org/x/net from 0.14.0 to 0.17.0 (#1050). - @dependabot[bot]
 - `docs`: Clarify Database Docs for Referencing DB Replicas (#1045). - @danaelhe
-- `testing`: Use terrafmt on docs directory (#1036). - @andrewsomething
+- `testing`: Use terrafmt on docs directory (#1036). - @andrewsomething 
 - `docs`: Update Droplet example (#1035). - @danaelhe
 
 ## 2.30.0
 
 FEATURES:
 
-- **New Resource:** `digitalocean_spaces_bucket_cors_configuration` (#1021) - @danaelhe
+- **New Resource:** `digitalocean_spaces_bucket_cors_configuration` (#1021) - @danaelhe 
 
 IMPROVEMENTS:
 
@@ -377,7 +377,7 @@ MISC:
 
 - `docs`: Make it clear that volume name has to start with a letter (#1024). - @ahasna
 - `docs`: Update Postgres version in example (#1014). - @danaelhe
-- `provider`: Bump Go version to v1.21.0 (#1025). - @andrewsomething
+- `provider`: Bump Go version to v1.21.0 (#1025). - @andrewsomething 
 - `provider`: Update godo to v1.102.1 (#1020). - @danaelhe
 - `provider`: Update godo dependency to v1.102.0 (#1018). - @danaelhe
 - `provider`: Update godo dependency to v1.101.0 (#1017.) - @danaelhe
@@ -394,7 +394,7 @@ IMPROVEMENTS:
 
 BUG FIXES:
 
-- `digitalocean_spaces_bucket`: Update `retryOnAwsCode` to five minutes (#999). - @danaelhe
+- `digitalocean_spaces_bucket`: Update `retryOnAwsCode` to five minutes (#999). - @danaelhe 
 
 MISC:
 

@@ -372,9 +372,6 @@ The easiest way to deploy is using the provided setup script:
 # Navigate to the k8s directory
 cd k8s
 
-# Make scripts executable (on Linux/Mac)
-chmod +x setup.sh monitoring-setup.sh
-
 # Run the setup script
 ./setup.sh
 ```

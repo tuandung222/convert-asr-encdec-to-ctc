@@ -8,10 +8,8 @@ source ./setup_utils.sh
 
 echo -e "${YELLOW}=== Deploying Vietnamese ASR Application to Kubernetes ===${NC}"
 
-# Check kubectl is configured
-if ! kubectl cluster-info &> /dev/null; then
-    echo -e "${RED}Error: kubectl is not configured or cannot connect to the cluster.${NC}"
-    echo -e "Please run ./2_configure_kubernetes.sh first."
+# Check kubectl is configured using our utility function
+if ! ensure_kubeconfig; then
     exit 1
 fi
 

@@ -15,10 +15,8 @@ if ! command -v helm &> /dev/null; then
     exit 1
 fi
 
-# Check kubectl is configured
-if ! kubectl cluster-info &> /dev/null; then
-    echo -e "${RED}Error: kubectl is not configured or cannot connect to the cluster.${NC}"
-    echo -e "Please run ./2_configure_kubernetes.sh first."
+# Check kubectl is configured using our utility function
+if ! ensure_kubeconfig; then
     exit 1
 fi
 
@@ -49,8 +47,44 @@ helm upgrade --install prometheus prometheus-community/kube-prometheus-stack \
 
 # Wait for Prometheus components to be ready
 echo -e "\n${YELLOW}=== Waiting for Prometheus to be ready ===${NC}"
-kubectl -n monitoring wait --for=condition=available --timeout=300s deployment/prometheus-kube-prometheus-operator
-kubectl -n monitoring wait --for=condition=available --timeout=300s deployment/prometheus-grafana
+echo -e "${YELLOW}Getting actual deployment names...${NC}"
+
+# Get actual deployment names using label selectors
+PROM_OPERATOR_DEPLOYMENT=$(kubectl -n monitoring get deployments -l app.kubernetes.io/name=kube-prometheus-stack-operator -o name 2>/dev/null || echo "")
+GRAFANA_DEPLOYMENT=$(kubectl -n monitoring get deployments -l app.kubernetes.io/name=grafana -o name 2>/dev/null || echo "")
+
+if [ -z "$PROM_OPERATOR_DEPLOYMENT" ]; then
+    echo -e "${YELLOW}Prometheus operator deployment not found with expected labels, trying alternative...${NC}"
+    PROM_OPERATOR_DEPLOYMENT=$(kubectl -n monitoring get deployments -l app=kube-prometheus-stack-operator -o name 2>/dev/null || echo "")
+    if [ -z "$PROM_OPERATOR_DEPLOYMENT" ]; then
+        echo -e "${YELLOW}Listing all deployments in monitoring namespace for debugging:${NC}"
+        kubectl -n monitoring get deployments
+        echo -e "${YELLOW}Continuing without waiting for operator...${NC}"
+    fi
+fi
+
+if [ -z "$GRAFANA_DEPLOYMENT" ]; then
+    echo -e "${YELLOW}Grafana deployment not found with expected labels, trying alternative...${NC}"
+    GRAFANA_DEPLOYMENT=$(kubectl -n monitoring get deployments -l app=grafana -o name 2>/dev/null || echo "")
+    if [ -z "$GRAFANA_DEPLOYMENT" ]; then
+        echo -e "${YELLOW}Continuing without waiting for Grafana...${NC}"
+    fi
+fi
+
+# Wait for components if they were found
+if [ ! -z "$PROM_OPERATOR_DEPLOYMENT" ]; then
+    echo -e "${YELLOW}Waiting for $PROM_OPERATOR_DEPLOYMENT to be ready...${NC}"
+    kubectl -n monitoring wait --for=condition=available --timeout=300s $PROM_OPERATOR_DEPLOYMENT
+else
+    # Sleep to allow time for resources to be created
+    echo -e "${YELLOW}Sleeping for 30 seconds to allow Prometheus components to start...${NC}"
+    sleep 30
+fi
+
+if [ ! -z "$GRAFANA_DEPLOYMENT" ]; then
+    echo -e "${YELLOW}Waiting for $GRAFANA_DEPLOYMENT to be ready...${NC}"
+    kubectl -n monitoring wait --for=condition=available --timeout=300s $GRAFANA_DEPLOYMENT
+fi
 
 # Install Jaeger Operator
 echo -e "\n${YELLOW}=== Installing Jaeger Operator ===${NC}"
@@ -73,10 +107,54 @@ if [ -z "$NODE_IP" ]; then
     NODE_IP=$(kubectl get nodes -o jsonpath='{.items[0].status.addresses[?(@.type=="InternalIP")].address}')
 fi
 
-# Get NodePort values
-PROMETHEUS_PORT=$(kubectl get svc prometheus-kube-prometheus-prometheus -n monitoring -o jsonpath='{.spec.ports[0].nodePort}')
-GRAFANA_PORT=$(kubectl get svc prometheus-grafana -n monitoring -o jsonpath='{.spec.ports[0].nodePort}')
-JAEGER_PORT=$(kubectl get svc jaeger-query -n observability -o jsonpath='{.spec.ports[0].nodePort}')
+# Get services and their NodePort values
+echo -e "\n${YELLOW}=== Finding Prometheus services ===${NC}"
+PROM_SERVICE=$(kubectl get svc -n monitoring -l app=kube-prometheus-stack-prometheus -o name 2>/dev/null || echo "")
+GRAFANA_SERVICE=$(kubectl get svc -n monitoring -l app.kubernetes.io/name=grafana -o name 2>/dev/null || echo "")
+JAEGER_SERVICE=$(kubectl get svc -n observability -l app=jaeger-query -o name 2>/dev/null || echo "")
+
+# If services weren't found with the expected labels, try alternatives
+if [ -z "$PROM_SERVICE" ]; then
+    echo -e "${YELLOW}Prometheus service not found with expected labels, trying alternative...${NC}"
+    PROM_SERVICE=$(kubectl get svc -n monitoring | grep prometheus | grep -v alertmanager | grep -v operator | head -1 | awk '{print $1}')
+    PROM_SERVICE="service/$PROM_SERVICE"
+fi
+
+if [ -z "$GRAFANA_SERVICE" ]; then
+    echo -e "${YELLOW}Grafana service not found with expected labels, trying alternative...${NC}"
+    GRAFANA_SERVICE=$(kubectl get svc -n monitoring | grep grafana | head -1 | awk '{print $1}')
+    GRAFANA_SERVICE="service/$GRAFANA_SERVICE"
+fi
+
+if [ -z "$JAEGER_SERVICE" ]; then
+    echo -e "${YELLOW}Jaeger service not found with expected labels, trying alternative...${NC}"
+    JAEGER_SERVICE=$(kubectl get svc -n observability | grep jaeger-query | head -1 | awk '{print $1}')
+    JAEGER_SERVICE="service/$JAEGER_SERVICE"
+fi
+
+# Extract service names from the full service paths
+PROM_SERVICE_NAME=$(echo $PROM_SERVICE | sed 's|^service/||')
+GRAFANA_SERVICE_NAME=$(echo $GRAFANA_SERVICE | sed 's|^service/||')
+JAEGER_SERVICE_NAME=$(echo $JAEGER_SERVICE | sed 's|^service/||')
+
+# Get NodePort values for the services (if they exist)
+if [ ! -z "$PROM_SERVICE_NAME" ]; then
+    PROMETHEUS_PORT=$(kubectl get svc $PROM_SERVICE_NAME -n monitoring -o jsonpath='{.spec.ports[0].nodePort}' 2>/dev/null || echo "unknown")
+else
+    PROMETHEUS_PORT="unknown"
+fi
+
+if [ ! -z "$GRAFANA_SERVICE_NAME" ]; then
+    GRAFANA_PORT=$(kubectl get svc $GRAFANA_SERVICE_NAME -n monitoring -o jsonpath='{.spec.ports[0].nodePort}' 2>/dev/null || echo "unknown")
+else
+    GRAFANA_PORT="unknown"
+fi
+
+if [ ! -z "$JAEGER_SERVICE_NAME" ]; then
+    JAEGER_PORT=$(kubectl get svc $JAEGER_SERVICE_NAME -n observability -o jsonpath='{.spec.ports[0].nodePort}' 2>/dev/null || echo "unknown")
+else
+    JAEGER_PORT="unknown"
+fi
 
 # Display information about the deployed monitoring services
 echo -e "\n${YELLOW}=== Monitoring Endpoints ===${NC}"
@@ -85,20 +163,58 @@ echo -e "you'll need to use the Node IP and port to access these services.\n"
 
 # Show Prometheus service details
 echo -e "${GREEN}Prometheus:${NC}"
-kubectl get svc -n monitoring prometheus-kube-prometheus-prometheus
-echo -e "Access URL: http://$NODE_IP:$PROMETHEUS_PORT"
+if [ ! -z "$PROM_SERVICE_NAME" ]; then
+    kubectl get svc -n monitoring $PROM_SERVICE_NAME
+    if [ "$PROMETHEUS_PORT" != "unknown" ]; then
+        echo -e "Access URL: http://$NODE_IP:$PROMETHEUS_PORT"
+    else
+        echo -e "Port could not be determined. Please check the service manually."
+    fi
+else
+    echo -e "${YELLOW}Prometheus service not found. Please check manually with: kubectl get svc -n monitoring${NC}"
+fi
 
 # Show Grafana service details
 echo -e "\n${GREEN}Grafana:${NC}"
-kubectl get svc -n monitoring prometheus-grafana
-echo -e "Access URL: http://$NODE_IP:$GRAFANA_PORT"
-echo "Username: admin"
-echo "Password: admin"
+if [ ! -z "$GRAFANA_SERVICE_NAME" ]; then
+    kubectl get svc -n monitoring $GRAFANA_SERVICE_NAME
+    if [ "$GRAFANA_PORT" != "unknown" ]; then
+        echo -e "Access URL: http://$NODE_IP:$GRAFANA_PORT"
+    else
+        echo -e "Port could not be determined. Please check the service manually."
+    fi
+    echo "Username: admin"
+    
+    # Get Grafana password
+    echo -e "${YELLOW}Getting Grafana password...${NC}"
+    GRAFANA_SECRET=$(kubectl -n monitoring get secrets -l app.kubernetes.io/name=grafana -o name 2>/dev/null || echo "")
+    if [ -z "$GRAFANA_SECRET" ]; then
+        echo -e "${YELLOW}Grafana secret not found with expected labels, trying alternative...${NC}"
+        GRAFANA_SECRET=$(kubectl -n monitoring get secrets | grep grafana | head -1 | awk '{print $1}')
+    fi
+    
+    if [ ! -z "$GRAFANA_SECRET" ]; then
+        PASSWORD=$(kubectl --namespace monitoring get secret $GRAFANA_SECRET -o jsonpath="{.data.admin-password}" | base64 -d 2>/dev/null || echo "admin")
+        echo "Password: $PASSWORD"
+    else
+        echo "Password: admin (default)"
+    fi
+else
+    echo -e "${YELLOW}Grafana service not found. Please check manually with: kubectl get svc -n monitoring${NC}"
+fi
 
 # Show Jaeger Query service details
 echo -e "\n${GREEN}Jaeger:${NC}"
-kubectl get svc -n observability jaeger-query
-echo -e "Access URL: http://$NODE_IP:$JAEGER_PORT"
+if [ ! -z "$JAEGER_SERVICE_NAME" ]; then
+    kubectl get svc -n observability $JAEGER_SERVICE_NAME
+    if [ "$JAEGER_PORT" != "unknown" ]; then
+        echo -e "Access URL: http://$NODE_IP:$JAEGER_PORT"
+    else
+        echo -e "Port could not be determined. Please check the service manually."
+    fi
+else
+    echo -e "${YELLOW}Jaeger service not found. Please check manually with: kubectl get svc -n observability${NC}"
+fi
 
 # Provide instructions for persistent access
 echo -e "\n${YELLOW}=== For Persistent Access ===${NC}"
