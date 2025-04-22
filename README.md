@@ -348,22 +348,35 @@ This will start:
   - Grafana: http://localhost:3000 (username: admin, password: admin)
   - Jaeger: http://localhost:16686
 
-### Option 2: Kubernetes on Digital Ocean
+### Option 2: Deploying on Kubernetes with DigitalOcean
 
-For production deployment with high availability and scalability:
+For a production-grade deployment that ensures high availability and scalability, deploy the application on a Kubernetes cluster provisioned on DigitalOcean. The deployment process involves several key steps, as illustrated in the diagram below:
 
 ```mermaid
 graph TD
-    Setup[Setup Script]-->|1. Authenticate|DO[Digital Ocean]
-    Setup-->|2. Create/Apply|TF[Terraform]
-    TF-->|3. Provision|K8s[Kubernetes Cluster]
-    Setup-->|4. Configure|KC[kubectl]
-    Setup-->|5. Deploy|App[Application Components]
-    Setup-->|6. Optional|Mon[Monitoring]
+    Start[Start Deployment Process]
+    Authenticate[1. Authenticate with DigitalOcean]
+    Provision[2. Provision Infrastructure with Terraform]
+    SetupCluster[3. Set up Kubernetes Cluster]
+    ConfigureKubectl[4. Configure kubectl Access]
+    DeployComponents[5. Deploy Application Components]
+    SetupMonitoring[6. Optional: Set up Monitoring Stack]
+    Complete[Deployment Complete]
 
-    style Setup fill:#f96,stroke:#333
-    style TF fill:#69f,stroke:#333
-    style K8s fill:#9cf,stroke:#333
+    Start --> Authenticate
+    Authenticate --> Provision
+    Provision --> SetupCluster
+    SetupCluster --> ConfigureKubectl
+    ConfigureKubectl --> DeployComponents
+    DeployComponents --> SetupMonitoring
+    SetupMonitoring --> Complete
+
+    %% Style definitions
+    classDef stepStyle fill:#1976D2,stroke:#0D47A1,stroke-width:2px,color:#FFFFFF
+    class Authenticate,Provision,SetupCluster,ConfigureKubectl,DeployComponents,SetupMonitoring stepStyle
+
+    style Start fill:#388E3C,stroke:#1B5E20,stroke-width:2px,color:#FFFFFF
+    style Complete fill:#388E3C,stroke:#1B5E20,stroke-width:2px,color:#FFFFFF
 ```
 
 #### Automated Deployment
