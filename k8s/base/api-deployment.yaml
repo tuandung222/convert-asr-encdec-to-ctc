@@ -6,7 +6,7 @@ metadata:
   labels:
     app: asr-api # Label to identify this deployment
 spec:
-  replicas: 3 # Number of pod replicas to maintain - provides high availability
+  replicas: 2 # Number of pod replicas to maintain - provides high availability
   selector:
     matchLabels:
       app: asr-api # Selector to identify which pods are managed by this deployment

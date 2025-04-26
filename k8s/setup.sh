@@ -89,5 +89,11 @@ echo -e "\n${GREEN}=====================================================${NC}"
 echo -e "${GREEN}=== Vietnamese ASR Kubernetes Deployment Completed! ===${NC}"
 echo -e "${GREEN}=====================================================${NC}"
 
-echo -e "\nWhen you're done with the deployment, you can clean up all resources with:"
-echo -e "./5_cleanup.sh"
+# Step 5: Setup ingress
+echo -e "\n${YELLOW}=== Step 5: Setting up ingress ===${NC}"
+source ./5_setup_ingress.sh
+echo -e "\n${GREEN}=== Ingress setup completed! ===${NC}"
+
+
+# echo -e "\nWhen you're done with the deployment, you can clean up all resources with:"
+# echo -e "./5_cleanup.sh"

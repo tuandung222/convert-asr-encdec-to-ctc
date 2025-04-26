@@ -5,14 +5,12 @@ metadata:
   namespace: asr-system
   labels:
     app: asr-api
-  annotations:
-    service.beta.kubernetes.io/do-loadbalancer-name: asr-api-lb
 spec:
-  type: LoadBalancer
+  type: NodePort
   ports:
-  - port: 80
-    targetPort: 8000
-    protocol: TCP
-    name: http
+    - port: 80
+      targetPort: 8000
+      protocol: TCP
+      name: http
   selector:
     app: asr-api

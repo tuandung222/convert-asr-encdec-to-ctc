@@ -60,4 +60,4 @@ echo -e "\n${YELLOW}=== Cleaning up local files ===${NC}"
 rm -f terraform.tfvars
 
 echo -e "\n${GREEN}=== Cleanup completed! ===${NC}"
-echo "All resources have been deleted." 
+echo "All resources have been deleted." a

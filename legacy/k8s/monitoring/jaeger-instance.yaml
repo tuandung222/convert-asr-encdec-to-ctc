@@ -1,0 +1,40 @@
+apiVersion: jaegertracing.io/v1
+kind: Jaeger
+metadata:
+  name: jaeger
+  namespace: observability
+spec:
+  strategy: allInOne  # For production, you might want to use "production" strategy
+  allInOne:
+    image: jaegertracing/all-in-one:latest
+    options:
+      log-level: info
+  storage:
+    type: memory  # For production, consider elasticsearch
+    options:
+      memory:
+        max-traces: 100000
+  ingress:
+    enabled: false
+  query:
+    serviceType: NodePort  # Use NodePort instead of LoadBalancer
+  agent:
+    strategy: DaemonSet
+    serviceType: ClusterIP  # Make agent accessible within the cluster
+  ui:
+    options:
+      dependencies:
+        menuEnabled: true
+      tracking:
+        gaID: UA-000000-2
+      menu:
+      - label: About Jaeger
+        items:
+        - label: Documentation
+          url: https://www.jaegertracing.io/docs/latest
+  annotations:
+    scheduler.alpha.kubernetes.io/critical-pod: ""
+  ingester:
+    enabled: false  # Not needed for allInOne strategy
+  collector:
+    enabled: false  # Not needed for allInOne strategy

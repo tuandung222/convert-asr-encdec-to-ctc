@@ -25,7 +25,7 @@ doctl auth switch --context ASR_DEPLOYMENT
 echo -e "\n${YELLOW}=== Setting up Terraform ===${NC}"
 cd ../terraform
 
-# Create terraform.tfvars file
+# Create terraform.tfvars file from example
 if [ -f "terraform.tfvars.example" ]; then
     cp terraform.tfvars.example terraform.tfvars
     sed -i "s|your-digitalocean-api-token|$DO_API_TOKEN|g" terraform.tfvars

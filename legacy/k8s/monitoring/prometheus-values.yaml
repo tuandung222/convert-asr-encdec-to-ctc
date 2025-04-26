@@ -1,0 +1,174 @@
+# Overrides the default release name with a custom name
+nameOverride: prometheus
+
+# Overrides the fully qualified release name for more direct naming
+fullnameOverride: prometheus
+
+defaultRules:
+  create: true  # Enables the creation of default Prometheus rules
+  rules:
+    alertmanager: true              # Alertmanager alerting rules
+    etcd: true                      # Alerts for etcd
+    configReloaders: true           # Checks config reloading
+    general: true                   # Miscellaneous general alerts
+    k8s: true                       # Kubernetes-specific alerts
+    kubeApiserver: true            # Alerts for API server
+    kubeApiserverAvailability: true # Availability checks
+    kubeApiserverSlos: true         # SLO checks
+    kubelet: true                   # Checks for kubelet
+    kubePrometheusGeneral: true     # General Prometheus alerts
+    kubePrometheusNodeRecording: true
+    kubernetesApps: true
+    kubernetesResources: true
+    kubernetesStorage: true
+    kubernetesSystem: true
+    kubeScheduler: true
+    kubeStateMetrics: true
+    network: true
+    node: true
+    nodeExporterAlerting: true
+    nodeExporterRecording: true
+    prometheus: true
+    prometheusOperator: true
+
+prometheus:
+  enabled: true                     # Deploys a Prometheus instance
+  serviceAccount:
+    create: true                    # Creates a dedicated ServiceAccount
+  prometheusSpec:
+    serviceMonitorSelector: {}      # Use to filter ServiceMonitors (empty = all)
+    serviceMonitorNamespaceSelector: {}
+    serviceMonitorSelectorNilUsesHelmValues: false
+    podMonitorSelector: {}
+    podMonitorNamespaceSelector: {}
+    podMonitorSelectorNilUsesHelmValues: false
+    retention: 10d                  # Data retention period
+    resources:                      # Resource requests and limits for Prometheus
+      requests:
+        memory: 512Mi
+        cpu: 500m
+      limits:
+        memory: 1Gi
+        cpu: 1000m
+  service:
+    type: NodePort                  # Exposes Prometheus service on a NodePort
+
+alertmanager:
+  enabled: true
+  serviceAccount:
+    create: true
+  service:
+    type: NodePort                  # Exposes Alertmanager on a NodePort
+
+grafana:
+  enabled: true                     # Deploy Grafana
+  adminPassword: admin             # Default admin password
+  service:
+    type: NodePort                  # Exposes Grafana on a NodePort
+  resources:                        # Resource settings for Grafana
+    requests:
+      memory: 256Mi
+      cpu: 100m
+    limits:
+      memory: 512Mi
+      cpu: 200m
+  sidecar:
+    dashboards:
+      enabled: true
+      label: grafana_dashboard      # Label for autofinding dashboards
+  datasources:
+    datasources.yaml:
+      apiVersion: 1
+      datasources:
+        - name: Prometheus
+          type: prometheus
+          url: http://prometheus-server
+          access: proxy
+          isDefault: true
+  dashboardProviders:
+    dashboardproviders.yaml:
+      apiVersion: 1
+      providers:
+        - name: 'default'
+          orgId: 1
+          folder: ''
+          type: file
+          disableDeletion: false
+          editable: true
+          options:
+            path: /var/lib/grafana/dashboards/default
+  dashboards:
+    default:
+      asr-overview:
+        json: |
+          {
+            "annotations": {
+              "list": [
+                {
+                  "builtIn": 1,
+                  "datasource": "-- Grafana --",
+                  "enable": true,
+                  "hide": true,
+                  "iconColor": "rgba(0, 211, 255, 1)",
+                  "name": "Annotations & Alerts",
+                  "type": "dashboard"
+                }
+              ]
+            },
+            "editable": true,
+            "id": 1,
+            "panels": [
+              {
+                "datasource": "Prometheus",
+                "gridPos": { "h": 8, "w": 12, "x": 0, "y": 0 },
+                "id": 2,
+                "legend": { "show": true },
+                "lines": true,
+                "targets": [
+                  {
+                    "exemplar": true,
+                    "expr": "rate(transcription_count_total[5m])",
+                    "legendFormat": "Transcriptions per second",
+                    "refId": "A"
+                  }
+                ],
+                "title": "Transcription Rate",
+                "type": "graph"
+              }
+            ],
+            "refresh": "10s",
+            "schemaVersion": 27,
+            "time": { "from": "now-6h", "to": "now" },
+            "title": "ASR System Overview",
+            "uid": "asr-overview"
+          }
+
+nodeExporter:
+  enabled: true                     # Deploy Node Exporter
+
+kubeStateMetrics:
+  enabled: true                     # Deploy kube-state-metrics
+
+kubeApiServer:
+  enabled: true                     # Deploy API server scrapings
+
+kubeControllerManager:
+  enabled: false                    # Turned off by default
+
+kubeScheduler:
+  enabled: false                    # Turned off by default
+
+kubeProxy:
+  enabled: false
+
+kubeEtcd:
+  enabled: false
+
+prometheusOperator:
+  resources:
+    limits:
+      cpu: 200m
+      memory: 256Mi
+    requests:
+      cpu: 100m
+      memory: 128Mi

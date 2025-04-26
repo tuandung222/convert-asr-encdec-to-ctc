@@ -1,40 +1,210 @@
-apiVersion: jaegertracing.io/v1
-kind: Jaeger
+apiVersion: apps/v1
+kind: Deployment
 metadata:
   name: jaeger
   namespace: observability
 spec:
-  strategy: allInOne  # For production, you might want to use "production" strategy
-  allInOne:
-    image: jaegertracing/all-in-one:latest
-    options:
-      log-level: info
-  storage:
-    type: memory  # For production, consider elasticsearch
-    options:
-      memory:
-        max-traces: 100000
-  ingress:
-    enabled: false
-  query:
-    serviceType: NodePort  # Use NodePort instead of LoadBalancer
-  agent:
-    strategy: DaemonSet
-    serviceType: ClusterIP  # Make agent accessible within the cluster
-  ui:
-    options:
-      dependencies:
-        menuEnabled: true
-      tracking:
-        gaID: UA-000000-2
-      menu:
-      - label: About Jaeger
-        items:
-        - label: Documentation
-          url: https://www.jaegertracing.io/docs/latest
-  annotations:
-    scheduler.alpha.kubernetes.io/critical-pod: ""
-  ingester:
-    enabled: false  # Not needed for allInOne strategy
-  collector:
-    enabled: false  # Not needed for allInOne strategy
+  replicas: 1
+  selector:
+    matchLabels:
+      app: jaeger
+  template:
+    metadata:
+      labels:
+        app: jaeger
+    spec:
+      containers:
+        - name: jaeger
+          image: jaegertracing/all-in-one:1.47
+          ports:
+            - containerPort: 6831
+              protocol: UDP
+              name: jaeger-thrift
+            - containerPort: 6832
+              protocol: UDP
+              name: jaeger-thrift-b
+            - containerPort: 5778
+              name: config-rest
+            - containerPort: 16686
+              name: query
+            - containerPort: 4317
+              name: otlp-grpc
+            - containerPort: 4318
+              name: otlp-http
+            - containerPort: 14250
+              name: model
+            - containerPort: 14268
+              name: collector
+            - containerPort: 14269
+              name: admin
+            - containerPort: 9411
+              name: zipkin
+          env:
+            - name: COLLECTOR_ZIPKIN_HOST_PORT
+              value: ":9411"
+            - name: COLLECTOR_OTLP_ENABLED
+              value: "true"
+            - name: JAEGER_DISABLED
+              value: "false"
+            - name: SPAN_STORAGE_TYPE
+              value: "memory"
+            - name: METRICS_STORAGE_TYPE
+              value: "prometheus"
+            - name: PROMETHEUS_SERVER_URL
+              value: "http://prometheus.monitoring:9090"
+            - name: SAMPLING_STRATEGIES_FILE
+              value: "/etc/jaeger/sampling.json"
+            - name: JAEGER_AGENT_PORT
+              value: "6831"
+            - name: KUBERNETES_SERVICE_HOST
+              value: ""
+          volumeMounts:
+            - name: jaeger-config
+              mountPath: /etc/jaeger
+          resources:
+            limits:
+              cpu: 500m
+              memory: 512Mi
+            requests:
+              cpu: 100m
+              memory: 100Mi
+          livenessProbe:
+            httpGet:
+              path: /
+              port: 16686
+            initialDelaySeconds: 30
+            periodSeconds: 30
+            timeoutSeconds: 10
+            failureThreshold: 3
+          readinessProbe:
+            httpGet:
+              path: /
+              port: 16686
+            initialDelaySeconds: 30
+            periodSeconds: 30
+            timeoutSeconds: 10
+            failureThreshold: 3
+          startupProbe:
+            httpGet:
+              path: /
+              port: 16686
+            initialDelaySeconds: 10
+            periodSeconds: 5
+            timeoutSeconds: 5
+            failureThreshold: 6
+      volumes:
+        - name: jaeger-config
+          configMap:
+            name: jaeger-config
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: jaeger-config
+  namespace: observability
+data:
+  sampling.json: |
+    {
+      "service_strategies": [
+        {
+          "service": "asr-api",
+          "type": "probabilistic",
+          "param": 1.0,
+          "operation_strategies": [
+            {
+              "operation": "transcribe",
+              "type": "probabilistic",
+              "param": 1.0
+            },
+            {
+              "operation": "/transcribe",
+              "type": "probabilistic",
+              "param": 1.0
+            },
+            {
+              "operation": "/health",
+              "type": "probabilistic",
+              "param": 0.1
+            },
+            {
+              "operation": "/models",
+              "type": "probabilistic",
+              "param": 0.3
+            }
+          ]
+        }
+      ],
+      "default_strategy": {
+        "type": "probabilistic",
+        "param": 0.5,
+        "operation_strategies": [
+          {
+            "operation": "/metrics",
+            "type": "probabilistic",
+            "param": 0.01
+          }
+        ]
+      }
+    }
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: jaeger-query
+  namespace: observability
+spec:
+  selector:
+    app: jaeger
+  ports:
+    - port: 16686
+      targetPort: 16686
+      name: query
+  type: NodePort
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: jaeger-collector
+  namespace: observability
+spec:
+  selector:
+    app: jaeger
+  ports:
+    - port: 14268
+      targetPort: 14268
+      name: collector
+    - port: 14250
+      targetPort: 14250
+      name: model
+    - port: 9411
+      targetPort: 9411
+      name: zipkin
+    - port: 4317
+      targetPort: 4317
+      name: otlp-grpc
+    - port: 4318
+      targetPort: 4318
+      name: otlp-http
+  type: NodePort
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: jaeger-agent
+  namespace: observability
+spec:
+  selector:
+    app: jaeger
+  ports:
+    - port: 6831
+      targetPort: 6831
+      protocol: UDP
+      name: jaeger-thrift
+    - port: 6832
+      targetPort: 6832
+      protocol: UDP
+      name: jaeger-thrift-b
+    - port: 5778
+      targetPort: 5778
+      name: config-rest
+  type: NodePort   

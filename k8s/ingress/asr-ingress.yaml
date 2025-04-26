@@ -1,0 +1,90 @@
+apiVersion: networking.k8s.io/v1  # Specify the API version for the Ingress resource.
+kind: Ingress  # Declare this object as an Ingress, which routes external traffic to internal services.
+metadata:
+  name: asr-ingress  # The name of the Ingress resource.
+  namespace: asr-system  # Changed to asr-system namespace
+  annotations:
+    # Rewrite the target URL using a captured group from the regex.
+    nginx.ingress.kubernetes.io/rewrite-target: /$2
+    # Enable regular expression processing for the paths.
+    nginx.ingress.kubernetes.io/use-regex: "true"
+    # Insert custom NGINX configuration to set important forwarded headers.
+    nginx.ingress.kubernetes.io/configuration-snippet: |
+      # Set the X-Forwarded-Proto header to indicate the protocol (HTTP or HTTPS) used by the client.
+      proxy_set_header X-Forwarded-Proto $scheme;
+      # Set the X-Forwarded-Host header to pass along the original host requested.
+      proxy_set_header X-Forwarded-Host $host;
+      # Set the X-Forwarded-For header to list all client IP addresses in the forwarding chain.
+      proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+    # Định tuyến từ namespace này đến namespace khác
+    nginx.ingress.kubernetes.io/service-upstream: "true"
+    # Add CORS configuration
+    nginx.ingress.kubernetes.io/enable-cors: "true"
+    nginx.ingress.kubernetes.io/cors-allow-origin: "*"
+    nginx.ingress.kubernetes.io/cors-allow-methods: "GET, PUT, POST, DELETE, PATCH, OPTIONS"
+    nginx.ingress.kubernetes.io/cors-allow-headers: "DNT,X-CustomHeader,Keep-Alive,User-Agent,X-Requested-With,If-Modified-Since,Cache-Control,Content-Type,Authorization"
+    # Add security headers
+    nginx.ingress.kubernetes.io/ssl-redirect: "false"
+    nginx.ingress.kubernetes.io/force-ssl-redirect: "false"
+    nginx.ingress.kubernetes.io/hsts: "true"
+    nginx.ingress.kubernetes.io/hsts-max-age: "31536000"
+    nginx.ingress.kubernetes.io/hsts-include-subdomains: "true"
+    nginx.ingress.kubernetes.io/hsts-preload: "true"
+spec:
+  ingressClassName: nginx  # Specify the ingress controller (NGINX) that should process this Ingress.
+  rules:
+  - http:
+      paths:
+      # ASR API - Main API endpoint: Routes requests starting with /api to the ASR API service.
+      - path: /api(/|$)(.*)  # Matches paths that start with /api followed by a slash or end of string, including subpaths.
+        pathType: Prefix  # Use prefix matching for the path.
+        backend:
+          service:
+            name: asr-api  # Name of the service handling ASR API requests.
+            port:
+              number: 80  # Changed to match service port
+      
+      # ASR UI - Streamlit UI: Routes requests starting with /ui to the ASR UI service.
+      - path: /ui(/|$)(.*)  # Matches paths that start with /ui followed by a slash or end of string.
+        pathType: Prefix  # Use prefix matching for UI routes.
+        backend:
+          service:
+            name: asr-ui  # Name of the service hosting the ASR UI.
+            port:
+              number: 8501  # Port number where the ASR UI service is exposed.
+      
+      # Prometheus - Metrics: Routes requests starting with /prometheus to the Prometheus service.
+      - path: /prometheus(/|$)(.*)  # Matches any path beginning with /prometheus.
+        pathType: Prefix  # Use prefix matching for Prometheus metrics.
+        backend:
+          service:
+            name: prometheus
+            port:
+              number: 9090  # Port where Prometheus serves metrics.
+      
+      # Grafana - Dashboards: Routes requests starting with /grafana to the Grafana service.
+      - path: /grafana(/|$)(.*)  # Matches any path beginning with /grafana.
+        pathType: Prefix  # Use prefix matching for Grafana dashboard requests.
+        backend:
+          service:
+            name: grafana
+            port:
+              number: 3000  # Default port for Grafana.
+      
+      # Jaeger - Tracing UI: Routes requests starting with /jaeger to the Jaeger Query service.
+      - path: /jaeger(/|$)(.*)  # Matches any path beginning with /jaeger.
+        pathType: Prefix  # Use prefix matching for Jaeger tracing access.
+        backend:
+          service:
+            name: jaeger-query
+            port:
+              number: 16686  # Port number for accessing the Jaeger tracing UI.
+      
+      # Root path redirect to UI: Directs root URL requests to the ASR UI service.
+      - path: /  # Matches the root path exactly.
+        pathType: Exact  # Use exact matching to ensure only the root path is captured.
+        backend:
+          service:
+            name: asr-ui  # Route root path requests to the ASR UI service.
+            port:
+              number: 8501  # Port where the ASR UI service is available.

@@ -88,18 +88,50 @@ If you prefer to run each step manually:
 
 ## Access Services
 
-After deployment, find the LoadBalancer IP addresses:
+After deployment, you have two options to access services:
+
+### Option 1: Direct Service Access (Default)
+
+By default, the main API and UI services are deployed with LoadBalancer type:
 
 ```bash
-# Get all service endpoints
-kubectl get svc -A
+# Get LoadBalancer IPs
+kubectl get svc -n asr-system
 ```
 
 **Access URLs:**
 - ASR API: http://<api-loadbalancer-ip>
 - ASR UI: http://<ui-loadbalancer-ip>
-- Grafana: http://<grafana-loadbalancer-ip> (Username: admin, Password: admin)
-- Jaeger UI: http://<jaeger-query-loadbalancer-ip>:16686
+
+### Option 2: Unified Access with Ingress (Recommended)
+
+For a more convenient access pattern using a single IP address, deploy the NGINX Ingress Controller:
+
+```bash
+# From the k8s directory
+cd ingress
+./setup-ingress.sh
+```
+
+This will:
+1. Deploy an NGINX Ingress Controller
+2. Convert all services to ClusterIP
+3. Set up path-based routing
+
+**Access URLs with Ingress:**
+```
+http://<ingress-ip>/api      # ASR API
+http://<ingress-ip>/ui       # ASR UI
+http://<ingress-ip>/prometheus  # Prometheus 
+http://<ingress-ip>/grafana     # Grafana (admin/admin)
+http://<ingress-ip>/jaeger      # Jaeger UI
+```
+
+The Ingress approach is **recommended** because:
+- Uses only one LoadBalancer (stays within Digital Ocean free tier limits)
+- Provides consistent URLs
+- Enables unified TLS/SSL setup
+- Improves security by exposing fewer endpoints
 
 ## Security Notes
 
@@ -117,3 +149,45 @@ If you encounter issues during deployment, check:
 2. Cluster status in the Digital Ocean dashboard
 3. Pod status with `kubectl get pods -A`
 4. Logs with `kubectl logs <pod-name> -n <namespace>`
+
+## Monitoring
+
+The deployment includes a monitoring stack with Prometheus, Grafana, and Jaeger for observability:
+
+- **Prometheus**: Collects metrics from the ASR system
+- **Grafana**: Visualizes metrics with pre-configured dashboards
+- **Jaeger**: Provides distributed tracing for API requests
+
+Unlike the previous implementation that used Helm charts, this version deploys the monitoring components directly as Kubernetes manifests for easier customization and management.
+
+### Monitoring Architecture
+
+```
+┌─────────────┐     ┌─────────────┐     ┌─────────────┐
+│  Prometheus │     │   Grafana   │     │    Jaeger   │
+│  (Metrics)  │     │ (Dashboards)│     │  (Tracing)  │
+└──────┬──────┘     └──────┬──────┘     └──────┬──────┘
+       │                   │                   │
+       └───────────┬───────┴───────────┬───────┘
+                   │                   │
+         ┌─────────▼─────────┐ ┌───────▼───────┐
+         │    ASR API        │ │     ASR UI    │
+         │ (instrumented)    │ │               │
+         └───────────────────┘ └───────────────┘
+```
+
+### Accessing Monitoring Services
+
+All monitoring services are accessible through NodePort services:
+
+```bash
+# Get the NodeIP and service ports
+NODE_IP=$(kubectl get nodes -o jsonpath='{.items[0].status.addresses[?(@.type=="ExternalIP")].address}')
+
+# Access URLs 
+Prometheus: http://<node-ip>:<prometheus-nodeport>
+Grafana: http://<node-ip>:<grafana-nodeport> (admin/admin)
+Jaeger UI: http://<node-ip>:<jaeger-query-nodeport>
+```
+
+For more information about the monitoring stack, see the [Monitoring Stack](../KUBERNETES.md#monitoring-stack) section in the main KUBERNETES.md documentation.

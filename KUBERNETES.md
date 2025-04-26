@@ -163,3 +163,145 @@ terraform destroy
 ```
 
 This will delete the Kubernetes cluster and all associated resources.
+
+## Monitoring Stack
+
+The deployment includes a monitoring stack with Prometheus, Grafana, and Jaeger, deployed directly as Kubernetes manifests without requiring Helm:
+
+### Components
+
+1. **Prometheus** - Collects metrics from the ASR system
+   - Uses emptyDir volume for ephemeral storage
+   - Configured with NodePort service for access
+   - Includes scraping configurations for ASR API and Kubernetes nodes
+
+2. **Grafana** - Visualizes the collected metrics
+   - Pre-configured with Prometheus datasource
+   - Includes a basic ASR system dashboard
+   - Default credentials: admin/admin
+   - Uses NodePort service for access
+
+3. **Jaeger** - Distributed tracing for API requests
+   - All-in-one deployment (suitable for non-production use)
+   - Query interface available via NodePort
+   - Collector services available to the ASR API
+
+### Deployment
+
+The monitoring stack can be deployed in two ways:
+
+1. **As part of the main deployment**: The monitoring stack is deployed automatically by the `3_setup_monitoring.sh` script before the application components.
+
+2. **Standalone deployment**: You can deploy only the monitoring components:
+   ```bash
+   cd k8s/monitoring
+   ./deploy-monitoring.sh
+   ```
+
+### Accessing the Monitoring Stack
+
+After deployment, access the monitoring components using the NodeIP and NodePort:
+
+```bash
+# Get the NodeIP
+NODE_IP=$(kubectl get nodes -o jsonpath='{.items[0].status.addresses[?(@.type=="ExternalIP")].address}')
+
+# Get the NodePorts
+PROM_PORT=$(kubectl get svc prometheus -n monitoring -o jsonpath='{.spec.ports[0].nodePort}')
+GRAFANA_PORT=$(kubectl get svc grafana -n monitoring -o jsonpath='{.spec.ports[0].nodePort}')
+JAEGER_PORT=$(kubectl get svc jaeger-query -n observability -o jsonpath='{.spec.ports[0].nodePort}')
+
+# Access URLs
+echo "Prometheus: http://$NODE_IP:$PROM_PORT"
+echo "Grafana: http://$NODE_IP:$GRAFANA_PORT (admin/admin)"
+echo "Jaeger UI: http://$NODE_IP:$JAEGER_PORT"
+```
+
+### Resource Usage
+
+The monitoring stack is configured with moderate resource requests and limits:
+
+- **Prometheus**: 200m-500m CPU, 500Mi-1Gi Memory
+- **Grafana**: 100m-500m CPU, 256Mi-512Mi Memory
+- **Jaeger**: 100m-500m CPU, 256Mi-512Mi Memory
+
+These values can be adjusted in the respective deployment YAML files as needed for your environment.
+
+## Ingress Controller
+
+To simplify access to services and reduce the number of required LoadBalancers, the deployment provides an NGINX Ingress Controller setup:
+
+### Benefits
+
+- Single LoadBalancer for all services (saving costs)
+- Path-based routing to all services
+- Simplified access through a single IP address
+- Ability to add TLS/SSL termination in one place
+
+### Architecture
+
+```
+                            ┌─────────────┐
+                            │ LoadBalancer│
+                            │  (1 IP)     │
+                            └──────┬──────┘
+                                   │
+                          ┌────────▼───────┐
+                          │ NGINX Ingress  │
+                          │  Controller    │
+                          └┬──────┬───────┬┘
+                           │      │       │
+      ┌────────────────────┼──────┼───────┼────────────────────┐
+      │                    │      │       │                    │
+┌─────▼─────┐      ┌───────▼────┐ │ ┌─────▼─────┐      ┌───────▼────┐
+│  ASR API   │      │   ASR UI   │ │ │ Prometheus│      │   Jaeger   │
+│ (/api/...) │      │ (/ui/...)  │ │ │ (/prom/...)│      │ (/jaeger/)│
+└───────────┘      └────────────┘ │ └───────────┘      └────────────┘
+                                  │
+                                  │
+                            ┌─────▼─────┐
+                            │  Grafana  │
+                            │ (/grafana)│
+                            └───────────┘
+```
+
+### Path Routing
+
+The Ingress controller routes requests based on URL paths:
+
+- `/api/*` → ASR API service
+- `/ui/*` → ASR UI (Streamlit)
+- `/prometheus/*` → Prometheus metrics
+- `/grafana/*` → Grafana dashboards
+- `/jaeger/*` → Jaeger tracing UI
+- `/` → Root path (redirects to UI)
+
+### Setup
+
+The Ingress Controller is set up with the following script, which should be run after deploying the application:
+
+```bash
+# From the k8s directory
+cd ingress
+./setup-ingress.sh
+```
+
+This script:
+1. Deploys the NGINX Ingress Controller
+2. Updates all services to use ClusterIP instead of LoadBalancer/NodePort
+3. Creates the Ingress resource to route traffic
+4. Waits for the LoadBalancer IP to be assigned
+5. Displays access URLs for all services
+
+### Access
+
+After setup, you can access all services through a single IP address:
+
+```
+http://<ingress-ip>/api      # ASR API
+http://<ingress-ip>/ui       # ASR UI
+http://<ingress-ip>/prometheus  # Prometheus 
+http://<ingress-ip>/grafana     # Grafana (admin/admin)
+http://<ingress-ip>/jaeger      # Jaeger UI
+http://<ingress-ip>/            # Root path (redirects to UI)
+```

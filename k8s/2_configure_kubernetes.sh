@@ -44,7 +44,8 @@ KUBECONFIG_DIR="${HOME}/.kube"
 mkdir -p "$KUBECONFIG_DIR"
 export KUBECONFIG="${KUBECONFIG_DIR}/config-${CLUSTER_ID}"
 echo -e "Saving kubeconfig to: ${KUBECONFIG}"
-doctl kubernetes cluster kubeconfig save "$CLUSTER_ID" --set-current-context
+# doctl kubernetes cluster kubeconfig save "$CLUSTER_ID" --set-current-context
+doctl kubernetes cluster kubeconfig save "$CLUSTER_ID" 
 
 # Verify connection
 echo -e "\n${YELLOW}=== Verifying connection to Kubernetes cluster ===${NC}"
